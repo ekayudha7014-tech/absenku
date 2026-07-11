@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Presensi Digital — SD Negeri Reksosari 01</title>
+</head>
+<body>
+<style>
+  :root{
+    --navy:#122A4D;
+    --navy-2:#1F3864;
+    --blue:#2E5395;
+    --gold:#B8860B;
+    --gold-light:#F4E4BC;
+    --bg:#EEF1F6;
+    --panel:#FFFFFF;
+    --line:#DCE2EC;
+    --ink:#1B2430;
+    --muted:#6B7686;
+    --green:#1E7B45;
+    --green-bg:#E7F5EC;
+    --amber:#B4720A;
+    --amber-bg:#FCF0DC;
+    --red:#B3261E;
+    --red-bg:#FBEAE9;
+    --radius:10px;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body,#app{margin:0;padding:0;background:var(--bg);color:var(--ink);}
+  #app{min-height:600px;}
+  h1,h2,h3{font-family:'Georgia',serif;color:var(--navy-2);margin:0 0 4px;}
+  .muted{color:var(--muted);font-size:13px;}
+  .hidden{display:none !important;}
+
+  /* ---------- Login ---------- */
+  .login-wrap{min-height:640px;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(160deg,var(--navy) 0%,var(--navy-2) 45%,var(--blue) 100%);padding:24px;}
+  .login-card{background:var(--panel);width:100%;max-width:380px;border-radius:14px;
+    padding:34px 30px;box-shadow:0 20px 50px rgba(0,0,0,.35);border-top:5px solid var(--gold);}
+  .login-badge{width:56px;height:56px;border-radius:50%;background:var(--navy-2);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-size:22px;
+    font-weight:bold;margin:0 auto 14px;}
+  .login-card h1{text-align:center;font-size:19px;margin-bottom:2px;}
+  .login-sub{text-align:center;color:var(--muted);font-size:12.5px;margin-bottom:22px;letter-spacing:.3px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12.5px;font-weight:600;color:var(--navy-2);margin-bottom:5px;}
+  .field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1.5px solid var(--line);
+    border-radius:8px;font-size:14px;background:#fbfcfe;transition:.15s;}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--blue);background:#fff;}
+  .btn{cursor:pointer;border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:600;
+    transition:.15s;display:inline-flex;align-items:center;gap:6px;}
+  .btn-primary{background:var(--navy-2);color:#fff;width:100%;justify-content:center;padding:12px;}
+  .btn-primary:hover{background:var(--blue);}
+  .btn-gold{background:var(--gold);color:#fff;}
+  .btn-gold:hover{background:#a3760a;}
+  .btn-outline{background:#fff;border:1.5px solid var(--line);color:var(--navy-2);}
+  .btn-outline:hover{border-color:var(--blue);}
+  .btn-danger{background:var(--red-bg);color:var(--red);}
+  .btn-danger:hover{background:#f6d6d4;}
+  .btn-sm{padding:6px 10px;font-size:12.5px;}
+  .err-msg{background:var(--red-bg);color:var(--red);padding:9px 12px;border-radius:8px;font-size:13px;margin-bottom:14px;}
+  .login-hint{margin-top:16px;text-align:center;font-size:11.5px;color:var(--muted);}
+
+  /* ---------- Shell ---------- */
+  .shell{display:flex;min-height:640px;}
+  .side{width:220px;background:var(--navy);color:#fff;flex-shrink:0;padding:20px 0;}
+  .side-brand{padding:0 20px 18px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:12px;}
+  .side-brand .name{font-family:Georgia,serif;font-weight:bold;font-size:15px;line-height:1.3;}
+  .side-brand .role{font-size:11px;color:var(--gold-light);margin-top:4px;text-transform:uppercase;letter-spacing:.6px;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:11px 20px;font-size:13.5px;cursor:pointer;
+    color:#cfd7e6;border-left:3px solid transparent;}
+  .nav-item:hover{background:rgba(255,255,255,.06);color:#fff;}
+  .nav-item.active{background:rgba(255,255,255,.1);color:#fff;border-left-color:var(--gold);font-weight:600;}
+  .nav-icon{width:18px;text-align:center;}
+  .side-logout{margin-top:20px;padding:11px 20px;border-top:1px solid rgba(255,255,255,.12);cursor:pointer;
+    color:#e6b8b8;font-size:13px;}
+  .side-logout:hover{color:#ffb4b0;}
+  .main{flex:1;padding:26px 30px;overflow-x:auto;}
+  .topbar{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:10px;}
+  .topbar .desc{color:var(--muted);font-size:13px;margin-top:2px;}
+
+  /* ---------- Cards / table ---------- */
+  .card{background:var(--panel);border-radius:var(--radius);padding:20px;box-shadow:0 1px 3px rgba(20,30,60,.08);
+    border:1px solid var(--line);margin-bottom:20px;}
+  .card-title{font-size:14px;font-weight:700;color:var(--navy-2);margin-bottom:14px;display:flex;
+    justify-content:space-between;align-items:center;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{background:var(--navy-2);color:#fff;text-align:left;padding:9px 10px;font-size:12px;letter-spacing:.2px;}
+  th:first-child{border-radius:6px 0 0 0;} th:last-child{border-radius:0 6px 0 0;}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:#f7f9fc;}
+  .row-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;align-items:end;}
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px;}
+  .stat-box{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;text-align:center;}
+  .stat-box .num{font-family:Georgia,serif;font-size:26px;font-weight:bold;color:var(--navy-2);}
+  .stat-box .lbl{font-size:12px;color:var(--muted);margin-top:2px;}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:700;}
+  .pill-h{background:var(--green-bg);color:var(--green);}
+  .pill-i{background:var(--amber-bg);color:var(--amber);}
+  .pill-s{background:#E4ECFB;color:#2E5395;}
+  .pill-a{background:var(--red-bg);color:var(--red);}
+  .badge-ok{background:var(--green-bg);color:var(--green);}
+  .badge-warn{background:var(--amber-bg);color:var(--amber);}
+  .badge-low{background:var(--red-bg);color:var(--red);}
+  .badge{padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+
+  .att-row{display:flex;align-items:center;justify-content:space-between;padding:9px 4px;border-bottom:1px solid var(--line);}
+  .att-row:last-child{border-bottom:none;}
+  .att-name{font-size:13.5px;} .att-nisn{color:var(--muted);font-size:11.5px;}
+  .seg{display:flex;gap:4px;}
+  .seg button{border:1.5px solid var(--line);background:#fff;padding:5px 10px;border-radius:6px;font-size:12px;
+    font-weight:700;cursor:pointer;color:var(--muted);}
+  .seg button.sel-H.on{background:var(--green);border-color:var(--green);color:#fff;}
+  .seg button.sel-I.on{background:var(--amber);border-color:var(--amber);color:#fff;}
+  .seg button.sel-S.on{background:var(--blue);border-color:var(--blue);color:#fff;}
+  .seg button.sel-A.on{background:var(--red);border-color:var(--red);color:#fff;}
+
+  .toast{position:fixed;bottom:22px;right:22px;background:var(--navy-2);color:#fff;padding:12px 18px;
+    border-radius:8px;font-size:13.5px;box-shadow:0 8px 20px rgba(0,0,0,.25);z-index:999;}
+
+  .empty{text-align:center;padding:34px 10px;color:var(--muted);}
+  .empty .big{font-size:30px;margin-bottom:6px;}
+
+  @media(max-width:820px){
+    .shell{flex-direction:column;}
+    .side{width:100%;display:flex;align-items:center;padding:10px 14px;overflow-x:auto;}
+    .side-brand{display:none;}
+    .nav-item{border-left:none;border-bottom:3px solid transparent;white-space:nowrap;padding:8px 12px;}
+    .nav-item.active{border-bottom-color:var(--gold);}
+    .side-logout{margin-top:0;border-top:none;padding:8px 12px;}
+    .main{padding:18px 14px;}
+  }
+
+  /* print styles removed — PDF is now generated directly via jsPDF, not window.print() */
+</style>
+
+<div id="app"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+(function(){
+  const SCHOOL = "SD Negeri Reksosari 01";
+  const KELAS_LIST = ["1","2","3","4","5","6"];
+  const BULAN_NAMA = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+  const STATUS_LABEL = {H:"Hadir", I:"Izin", S:"Sakit", A:"Alpha"};
+
+  let state = { user:null, view:null };
+  let pendingImportRows = [];
+
+  // ---------- storage helpers ----------
+  // Works two ways:
+  // 1) Inside Claude artifacts: uses window.storage (built into that environment)
+  // 2) Deployed standalone (e.g. Netlify): uses /api/data, a serverless function
+  //    backed by Netlify Blobs (see netlify/functions/data.mjs)
+  const hasNativeStorage = () => typeof window.storage !== "undefined" && window.storage !== null;
+
+  async function getData(key, fallback, shared){
+    if(shared===undefined) shared=true;
+    try{
+      if(hasNativeStorage()){
+        const r = await window.storage.get(key, shared);
+        return r && r.value ? JSON.parse(r.value) : fallback;
+      } else {
+        const res = await fetch(`/api/data?key=${encodeURIComponent(key)}`);
+        if(!res.ok) return fallback;
+        const data = await res.json();
+        return data && data.value ? JSON.parse(data.value) : fallback;
+      }
+    }catch(e){ console.error("getData error", e); return fallback; }
+  }
+  async function setData(key, obj, shared){
+    if(shared===undefined) shared=true;
+    try{
+      const json = JSON.stringify(obj);
+      if(hasNativeStorage()){
+        await window.storage.set(key, json, shared);
+      } else {
+        const res = await fetch("/api/data", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({key, value: json})
+        });
+        if(!res.ok) return false;
+      }
+      return true;
+    }catch(e){ console.error("setData error", e); return false; }
+  }
+
+  function uid(prefix){ return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+  function pad(n){ return n<10 ? "0"+n : ""+n; }
+  function todayStr(){ const d=new Date(); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+  function thisMonthStr(){ const d=new Date(); return d.getFullYear()+"-"+pad(d.getMonth()+1); }
+  function fmtDateID(iso){
+    const [y,m,d]=iso.split("-"); return `${d} ${BULAN_NAMA[parseInt(m,10)-1]} ${y}`;
+  }
+  function daysInMonth(ym){ const [y,m]=ym.split("-").map(Number); return new Date(y,m,0).getDate(); }
+  // hari efektif = Senin s.d. Sabtu (asumsi tanpa memperhitungkan hari libur nasional)
+  function effectiveDaysUpTo(ym, upToDay){
+    const [y,m]=ym.split("-").map(Number);
+    let count=0;
+    for(let d=1; d<=upToDay; d++){
+      const day = new Date(y, m-1, d).getDay(); // 0=Min
+      if(day!==0) count++;
+    }
+    return count;
+  }
+
+  function toast(msg){
+    const t=document.createElement("div"); t.className="toast"; t.textContent=msg;
+    document.body.appendChild(t); setTimeout(()=>t.remove(),2600);
+  }
+
+  function esc(s){ return (s||"").toString().replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+  // Custom confirm modal (window.confirm() dialogs are blocked in this environment)
+  function showConfirm(message, onYes, opts){
+    opts = opts || {};
+    const yesLabel = opts.yesLabel || "Hapus";
+    const yesClass = opts.yesClass || "btn-danger";
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:1000;display:flex;align-items:center;justify-content:center;";
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:12px;padding:22px 24px;max-width:340px;width:88%;box-shadow:0 20px 50px rgba(0,0,0,.3);">
+        <div style="font-size:14.5px;color:#1B2430;margin-bottom:18px;">${esc(message)}</div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button class="btn btn-outline btn-sm" id="confirm-no-btn">Batal</button>
+          <button class="btn ${yesClass} btn-sm" id="confirm-yes-btn">${esc(yesLabel)}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener("click", e=>{ if(e.target===overlay) overlay.remove(); });
+    overlay.querySelector("#confirm-no-btn").onclick = ()=> overlay.remove();
+    overlay.querySelector("#confirm-yes-btn").onclick = ()=>{ overlay.remove(); onYes(); };
+  }
+
+  function penugasanOptions(selected){
+    const opts = ["Kepala Sekolah",...KELAS_LIST.map(k=>"Guru Kelas "+k),"Guru Mapel / Lainnya"];
+    return opts.map(o=>`<option value="${o}" ${o===selected?"selected":""}>${o}</option>`).join("");
+  }
+  function kelasFromPenugasan(p){
+    const m = /^Guru Kelas (\d+)$/.exec(p||""); return m ? m[1] : null;
+  }
+
+  const root = document.getElementById("app");
+
+  // ================= LOGIN =================
+  async function renderLogin(err){
+    root.innerHTML = `
+      <div class="login-wrap">
+        <div class="login-card">
+          <div class="login-badge">R1</div>
+          <h1>Presensi Digital</h1>
+          <div class="login-sub">${SCHOOL}</div>
+          ${err ? `<div class="err-msg">${esc(err)}</div>` : ""}
+          <div class="field"><label>Username</label><input id="login-user" placeholder="Masukkan username" autocomplete="username"/></div>
+          <div class="field"><label>Kata Sandi</label><input id="login-pass" type="password" placeholder="Masukkan kata sandi" autocomplete="current-password"/></div>
+          <button class="btn btn-primary" onclick="PresensiApp.login()">Masuk</button>
+          <div class="login-hint">Admin default: <b>admin</b> / <b>admin123</b><br/>Akun guru dibuat oleh admin.</div>
+        </div>
+      </div>`;
+    document.getElementById("login-pass").addEventListener("keydown", e=>{ if(e.key==="Enter") login(); });
+  }
+
+  async function login(){
+    const u = document.getElementById("login-user").value.trim();
+    const p = document.getElementById("login-pass").value;
+    if(!u || !p) return renderLogin("Username dan kata sandi wajib diisi.");
+    const admin = await getData("admin", {username:"admin", password:"admin123"});
+    if(u===admin.username && p===admin.password){
+      state.user = {username:u, nama:"Administrator", role:"admin"};
+      return renderAdmin("guru");
+    }
+    const gurus = await getData("guru_list", []);
+    const g = gurus.find(x=>x.username===u && x.password===p);
+    if(g){
+      const role = g.penugasan==="Kepala Sekolah" ? "kepsek" : "guru";
+      state.user = Object.assign({}, g, {role});
+      return role==="guru" ? renderGuru("input") : renderKepsek("monitor");
+    }
+    renderLogin("Username atau kata sandi salah. Hubungi admin jika lupa.");
+  }
+  function logout(){ state.user=null; renderLogin(); }
+
+  // ================= SHELL =================
+  function shell(navItems, activeKey, contentHtml, roleLabel){
+    root.innerHTML = `
+      <div class="shell">
+        <div class="side">
+          <div class="side-brand">
+            <div class="name">${SCHOOL}</div>
+            <div class="role">${roleLabel}</div>
+          </div>
+          ${navItems.map(n=>`<div class="nav-item ${n.key===activeKey?'active':''}" onclick="PresensiApp.go('${n.key}')">
+              <span class="nav-icon">${n.icon}</span> ${n.label}</div>`).join("")}
+          <div class="side-logout" onclick="PresensiApp.logout()">↩ Keluar (${esc(state.user.nama||state.user.username)})</div>
+        </div>
+        <div class="main" id="main">${contentHtml}</div>
+      </div>`;
+  }
+
+  // ================= ADMIN =================
+  const adminNav = [
+    {key:"guru", label:"Kelola Guru", icon:"👤"},
+    {key:"murid", label:"Kelola Murid", icon:"🎒"},
+    {key:"monitor", label:"Pantau Presensi", icon:"📊"},
+    {key:"laporan", label:"Unduh Laporan", icon:"⬇"},
+    {key:"akun", label:"Akun Admin", icon:"⚙"},
+  ];
+
+  async function renderAdmin(tab){
+    state.view = {area:"admin", tab};
+    let content = "";
+    if(tab==="guru") content = await guruManageHtml();
+    else if(tab==="murid") content = await muridManageHtml();
+    else if(tab==="monitor") content = await monitorHtml();
+    else if(tab==="laporan") content = await laporanAdminHtml();
+    else if(tab==="akun") content = adminAccountHtml();
+    shell(adminNav, tab, content, "Administrator");
+    wireTabExtras(tab);
+  }
+
+  async function guruManageHtml(){
+    const gurus = await getData("guru_list", []);
+    const rows = gurus.map(g=>`
+      <tr>
+        <td>${esc(g.nama)}</td>
+        <td>${esc(g.nip)}</td>
+        <td>${esc(g.penugasan)}</td>
+        <td>${esc(g.username)}</td>
+        <td>
+          <button class="btn btn-outline btn-sm" onclick="PresensiApp.editGuru('${g.id}')">Ubah</button>
+          <button class="btn btn-danger btn-sm" onclick="PresensiApp.deleteGuru('${g.id}')">Hapus</button>
+        </td>
+      </tr>`).join("");
+    return `
+      <div class="topbar"><div><h2>Kelola Data Guru</h2><div class="desc">Tambahkan akun guru, wali kelas, dan kepala sekolah.</div></div></div>
+      <div class="card">
+        <div class="card-title" id="guru-form-title">Tambah Guru</div>
+        <input type="hidden" id="guru-edit-id"/>
+        <div class="row-form">
+          <div class="field"><label>Nama Lengkap</label><input id="g-nama" placeholder="Nama guru"/></div>
+          <div class="field"><label>NIP</label><input id="g-nip" placeholder="Nomor Induk Pegawai"/></div>
+          <div class="field"><label>Penugasan</label><select id="g-penugasan">${penugasanOptions()}</select></div>
+          <div class="field"><label>Username</label><input id="g-username" placeholder="username login"/></div>
+          <div class="field"><label>Kata Sandi</label><input id="g-password" placeholder="kata sandi"/></div>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:8px;">
+          <button class="btn btn-gold" onclick="PresensiApp.saveGuru()">Simpan Guru</button>
+          <button class="btn btn-outline hidden" id="guru-cancel" onclick="PresensiApp.cancelGuruEdit()">Batal Ubah</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Daftar Guru &amp; Kepala Sekolah (${gurus.length})</div>
+        ${gurus.length? `<table><thead><tr><th>Nama</th><th>NIP</th><th>Penugasan</th><th>Username</th><th>Aksi</th></tr></thead><tbody>${rows}</tbody></table>`
+          : `<div class="empty"><div class="big">👤</div>Belum ada data guru. Tambahkan menggunakan formulir di atas.</div>`}
+      </div>`;
+  }
+
+  async function saveGuru(){
+    const id = document.getElementById("guru-edit-id").value;
+    const nama = document.getElementById("g-nama").value.trim();
+    const nip = document.getElementById("g-nip").value.trim();
+    const penugasan = document.getElementById("g-penugasan").value;
+    const username = document.getElementById("g-username").value.trim();
+    const password = document.getElementById("g-password").value;
+    if(!nama || !username || !password) return toast("Nama, username, dan kata sandi wajib diisi.");
+    let gurus = await getData("guru_list", []);
+    if(gurus.some(g=>g.username===username && g.id!==id)) return toast("Username sudah dipakai guru lain.");
+    if(id){
+      gurus = gurus.map(g=> g.id===id ? {...g, nama, nip, penugasan, username, password} : g);
+    } else {
+      gurus.push({id:uid("g"), nama, nip, penugasan, username, password});
+    }
+    await setData("guru_list", gurus);
+    toast("Data guru tersimpan.");
+    renderAdmin("guru");
+  }
+  async function editGuru(id){
+    const gurus = await getData("guru_list", []);
+    const g = gurus.find(x=>x.id===id); if(!g) return;
+    await renderAdmin("guru");
+    document.getElementById("guru-form-title").textContent = "Ubah Guru";
+    document.getElementById("guru-edit-id").value = g.id;
+    document.getElementById("g-nama").value = g.nama;
+    document.getElementById("g-nip").value = g.nip;
+    document.getElementById("g-penugasan").value = g.penugasan;
+    document.getElementById("g-username").value = g.username;
+    document.getElementById("g-password").value = g.password;
+    document.getElementById("guru-cancel").classList.remove("hidden");
+  }
+  function cancelGuruEdit(){ renderAdmin("guru"); }
+  function deleteGuru(id){
+    showConfirm("Hapus data guru ini?", async ()=>{
+      let gurus = await getData("guru_list", []);
+      gurus = gurus.filter(g=>g.id!==id);
+      await setData("guru_list", gurus);
+      toast("Data guru dihapus.");
+      renderAdmin("guru");
+    });
+  }
+
+  async function muridManageHtml(){
+    const murid = await getData("murid_list", []);
+    const byKelas = {};
+    murid.forEach(m=>{ (byKelas[m.kelas]=byKelas[m.kelas]||[]).push(m); });
+    const rows = murid.sort((a,b)=> (a.kelas+a.nama).localeCompare(b.kelas+b.nama)).map(m=>`
+      <tr>
+        <td>${esc(m.nama)}</td><td>${esc(m.nisn)}</td><td>Kelas ${esc(m.kelas)}</td>
+        <td>
+          <button class="btn btn-outline btn-sm" onclick="PresensiApp.editMurid('${m.id}')">Ubah</button>
+          <button class="btn btn-danger btn-sm" onclick="PresensiApp.deleteMurid('${m.id}')">Hapus</button>
+        </td>
+      </tr>`).join("");
+    return `
+      <div class="topbar"><div><h2>Kelola Data Murid</h2><div class="desc">Tambah satu per satu, atau impor banyak murid sekaligus dari file CSV/Excel.</div></div></div>
+      <div class="card">
+        <div class="card-title" id="murid-form-title">Tambah Murid</div>
+        <input type="hidden" id="murid-edit-id"/>
+        <div class="row-form">
+          <div class="field"><label>Nama Lengkap</label><input id="m-nama" placeholder="Nama murid"/></div>
+          <div class="field"><label>NISN</label><input id="m-nisn" placeholder="Nomor Induk Siswa Nasional"/></div>
+          <div class="field"><label>Kelas</label><select id="m-kelas">${KELAS_LIST.map(k=>`<option value="${k}">Kelas ${k}</option>`).join("")}</select></div>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:8px;">
+          <button class="btn btn-gold" onclick="PresensiApp.saveMurid()">Simpan Murid</button>
+          <button class="btn btn-outline hidden" id="murid-cancel" onclick="PresensiApp.cancelMuridEdit()">Batal Ubah</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Impor dari File Excel / CSV</div>
+        <div class="muted" style="margin-bottom:8px;">File harus memiliki baris judul kolom berisi <b>nama</b>, <b>nisn</b>, dan <b>kelas</b> (urutan kolom bebas). Format didukung: .csv, .xlsx, .xls.</div>
+        <input type="file" id="file-import-input" accept=".csv,.xlsx,.xls" onchange="PresensiApp.handleFileImport(event)"/>
+        <div id="import-preview"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Daftar Murid (${murid.length})</div>
+        ${murid.length? `<table><thead><tr><th>Nama</th><th>NISN</th><th>Kelas</th><th>Aksi</th></tr></thead><tbody>${rows}</tbody></table>`
+          : `<div class="empty"><div class="big">🎒</div>Belum ada data murid.</div>`}
+      </div>`;
+  }
+  async function saveMurid(){
+    const id = document.getElementById("murid-edit-id").value;
+    const nama = document.getElementById("m-nama").value.trim();
+    const nisn = document.getElementById("m-nisn").value.trim();
+    const kelas = document.getElementById("m-kelas").value;
+    if(!nama) return toast("Nama murid wajib diisi.");
+    let murid = await getData("murid_list", []);
+    if(id) murid = murid.map(m=> m.id===id ? {...m, nama, nisn, kelas} : m);
+    else murid.push({id:uid("m"), nama, nisn, kelas});
+    await setData("murid_list", murid);
+    toast("Data murid tersimpan.");
+    renderAdmin("murid");
+  }
+  async function editMurid(id){
+    const murid = await getData("murid_list", []);
+    const m = murid.find(x=>x.id===id); if(!m) return;
+    await renderAdmin("murid");
+    document.getElementById("murid-form-title").textContent="Ubah Murid";
+    document.getElementById("murid-edit-id").value=m.id;
+    document.getElementById("m-nama").value=m.nama;
+    document.getElementById("m-nisn").value=m.nisn;
+    document.getElementById("m-kelas").value=m.kelas;
+    document.getElementById("murid-cancel").classList.remove("hidden");
+  }
+  function cancelMuridEdit(){ renderAdmin("murid"); }
+  function deleteMurid(id){
+    showConfirm("Hapus data murid ini?", async ()=>{
+      let murid = await getData("murid_list", []);
+      murid = murid.filter(m=>m.id!==id);
+      await setData("murid_list", murid);
+      toast("Data murid dihapus.");
+      renderAdmin("murid");
+    });
+  }
+  function handleFileImport(event){
+    const file = event.target.files[0];
+    if(!file) return;
+    const isCSV = /\.csv$/i.test(file.name);
+    const reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        const workbook = isCSV
+          ? XLSX.read(e.target.result, {type:"string"})
+          : XLSX.read(e.target.result, {type:"array"});
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet, {defval:""});
+        processImportRows(json);
+      }catch(err){
+        console.error(err);
+        toast("Gagal membaca file. Pastikan format CSV/Excel benar.");
+      }
+    };
+    reader.onerror = function(){ toast("Gagal membaca file."); };
+    if(isCSV) reader.readAsText(file); else reader.readAsArrayBuffer(file);
+  }
+
+  function processImportRows(json){
+    if(!json || !json.length){ toast("File kosong atau format tidak dikenali."); return; }
+    const keys = Object.keys(json[0]);
+    const findKey = (pattern) => keys.find(k => pattern.test((k||"").toString().trim()));
+    const kNama = findKey(/nama/i);
+    const kNisn = findKey(/nisn/i);
+    const kKelas = findKey(/kelas/i);
+    if(!kNama){ toast("Kolom 'nama' tidak ditemukan. Pastikan baris judul kolom berisi nama, nisn, kelas."); return; }
+    pendingImportRows = json.map(row=>({
+      nama: (row[kNama]||"").toString().trim(),
+      nisn: kNisn ? (row[kNisn]||"").toString().trim() : "",
+      kelas: kKelas ? (row[kKelas]||"").toString().replace(/\D/g,"") : ""
+    })).filter(r=>r.nama);
+    if(!pendingImportRows.length){ toast("Tidak ada baris data murid yang valid ditemukan."); return; }
+    renderImportPreview();
+  }
+
+  function renderImportPreview(){
+    const container = document.getElementById("import-preview");
+    if(!container) return;
+    if(!pendingImportRows.length){ container.innerHTML = ""; return; }
+    const missingKelas = pendingImportRows.filter(r=>!r.kelas).length;
+    const previewRows = pendingImportRows.slice(0,8).map((r,i)=>`
+      <tr><td>${i+1}</td><td>${esc(r.nama)}</td><td>${esc(r.nisn)||"-"}</td><td>${esc(r.kelas)||"⚠ kosong"}</td></tr>`).join("");
+    container.innerHTML = `
+      <div class="muted" style="margin:10px 0 6px;">Pratinjau ${pendingImportRows.length} data (menampilkan ${Math.min(8,pendingImportRows.length)} pertama)${missingKelas? ` — <span style="color:#B3261E;">${missingKelas} baris tanpa kelas, akan diisi Kelas 1</span>`:""}:</div>
+      <table><thead><tr><th>No</th><th>Nama</th><th>NISN</th><th>Kelas</th></tr></thead><tbody>${previewRows}</tbody></table>
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <button class="btn btn-gold" onclick="PresensiApp.confirmFileImport()">Konfirmasi &amp; Simpan ${pendingImportRows.length} Murid</button>
+        <button class="btn btn-outline" onclick="PresensiApp.cancelFileImport()">Batal</button>
+      </div>`;
+  }
+
+  async function confirmFileImport(){
+    if(!pendingImportRows.length) return;
+    let murid = await getData("murid_list", []);
+    pendingImportRows.forEach(r=>{
+      murid.push({id:uid("m"), nama:r.nama, nisn:r.nisn, kelas:r.kelas||"1"});
+    });
+    await setData("murid_list", murid);
+    const count = pendingImportRows.length;
+    pendingImportRows = [];
+    toast(`${count} murid berhasil diimpor.`);
+    renderAdmin("murid");
+  }
+  function cancelFileImport(){
+    pendingImportRows = [];
+    const el = document.getElementById("file-import-input"); if(el) el.value = "";
+    renderImportPreview();
+  }
+
+  // ---- monitoring ----
+  async function monitorHtml(ym){
+    ym = ym || thisMonthStr();
+    const murid = await getData("murid_list", []);
+    const today = new Date();
+    const isCurrentMonth = ym === thisMonthStr();
+    const upTo = isCurrentMonth ? today.getDate() : daysInMonth(ym);
+    const effDays = Math.max(effectiveDaysUpTo(ym, upTo), 1);
+
+    let rows="";
+    for(const k of KELAS_LIST){
+      const jumlahMurid = murid.filter(m=>m.kelas===k).length;
+      const data = await getData(`presensi:${k}:${ym}`, {});
+      const filled = Object.keys(data).length;
+      const pct = Math.round((filled/effDays)*100);
+      const badgeClass = pct>=80?"badge-ok":pct>=50?"badge-warn":"badge-low";
+      rows += `<tr>
+        <td>Kelas ${k}</td>
+        <td>${jumlahMurid} murid</td>
+        <td>${filled} / ${effDays} hari</td>
+        <td><span class="badge ${badgeClass}">${pct}%</span></td>
+      </tr>`;
+    }
+    return `
+      <div class="topbar">
+        <div><h2>Pantau Progres Presensi</h2><div class="desc">Persentase hari yang sudah diisi guru dibanding hari efektif (Senin–Sabtu) bulan berjalan.</div></div>
+        <div class="field" style="min-width:180px;"><label>Pilih Bulan</label>
+          <input type="month" id="monitor-month" value="${ym}" onchange="PresensiApp.changeMonitorMonth(this.value)"/></div>
+      </div>
+      <div class="card">
+        <table><thead><tr><th>Kelas</th><th>Jumlah Murid</th><th>Hari Terisi</th><th>Progres</th></tr></thead>
+        <tbody>${rows}</tbody></table>
+      </div>`;
+  }
+  async function changeMonitorMonth(ym){
+    document.getElementById("main").innerHTML = await monitorHtml(ym);
+  }
+
+  async function laporanAdminHtml(){
+    return `
+      <div class="topbar"><div><h2>Unduh Laporan Presensi</h2><div class="desc">Pilih kelas dan bulan, lalu unduh rekap dalam format Excel.</div></div></div>
+      <div class="card">
+        <div class="row-form">
+          <div class="field"><label>Kelas</label><select id="rep-kelas">${KELAS_LIST.map(k=>`<option value="${k}">Kelas ${k}</option>`).join("")}</select></div>
+          <div class="field"><label>Bulan</label><input type="month" id="rep-bulan" value="${thisMonthStr()}"/></div>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;">
+          <button class="btn btn-gold" onclick="PresensiApp.downloadRecap(document.getElementById('rep-kelas').value, document.getElementById('rep-bulan').value)">⬇ Unduh Excel</button>
+          <button class="btn btn-outline" onclick="PresensiApp.printRecap(document.getElementById('rep-kelas').value, document.getElementById('rep-bulan').value)">🖶 Cetak / Simpan PDF</button>
+        </div>
+      </div>`;
+  }
+  function adminAccountHtml(){
+    return `
+      <div class="topbar"><div><h2>Akun Admin</h2><div class="desc">Ubah username dan kata sandi login administrator.</div></div></div>
+      <div class="card" style="max-width:420px;">
+        <div class="field"><label>Username</label><input id="adm-user" placeholder="username"/></div>
+        <div class="field"><label>Kata Sandi Baru</label><input id="adm-pass" type="password" placeholder="kata sandi baru"/></div>
+        <button class="btn btn-gold" onclick="PresensiApp.saveAdminAccount()">Simpan Perubahan</button>
+      </div>`;
+  }
+  async function saveAdminAccount(){
+    const u = document.getElementById("adm-user").value.trim();
+    const p = document.getElementById("adm-pass").value;
+    if(!u || !p) return toast("Username dan kata sandi wajib diisi.");
+    await setData("admin", {username:u, password:p});
+    toast("Akun admin diperbarui. Gunakan username/kata sandi baru saat login berikutnya.");
+  }
+
+  function wireTabExtras(){ /* placeholder for future dynamic bindings */ }
+
+  // ================= KEPALA SEKOLAH =================
+  const kepsekNav = [
+    {key:"monitor", label:"Pantau Presensi", icon:"📊"},
+    {key:"laporan", label:"Unduh Laporan", icon:"⬇"},
+  ];
+  async function renderKepsek(tab){
+    state.view = {area:"kepsek", tab};
+    let content = tab==="laporan" ? await laporanAdminHtml() : await monitorHtml();
+    shell(kepsekNav, tab, content, "Kepala Sekolah");
+  }
+
+  // ================= GURU =================
+  const guruNav = [
+    {key:"input", label:"Input Presensi", icon:"✅"},
+    {key:"rekap", label:"Rekap Bulanan", icon:"📋"},
+  ];
+  async function renderGuru(tab){
+    state.view = {area:"guru", tab};
+    const kelas = kelasFromPenugasan(state.user.penugasan);
+    let content;
+    if(!kelas){
+      content = `<div class="card"><div class="empty"><div class="big">⚠</div>Akun Anda belum ditugaskan sebagai wali kelas.<br/>Hubungi admin untuk pengaturan penugasan kelas.</div></div>`;
+    } else if(tab==="rekap"){
+      content = await rekapGuruHtml(kelas);
+    } else {
+      content = await inputPresensiHtml(kelas, todayStr());
+    }
+    shell(guruNav, tab, content, "Guru — " + esc(state.user.penugasan||""));
+  }
+
+  async function inputPresensiHtml(kelas, tanggal){
+    const murid = await getData("murid_list", []);
+    const list = murid.filter(m=>m.kelas===kelas).sort((a,b)=>a.nama.localeCompare(b.nama));
+    const ym = tanggal.slice(0,7);
+    const monthData = await getData(`presensi:${kelas}:${ym}`, {});
+    const dayData = monthData[tanggal] || {};
+
+    const rows = list.map(m=>{
+      const cur = dayData[m.id] || "";
+      return `<div class="att-row">
+        <div><div class="att-name">${esc(m.nama)}</div><div class="att-nisn">NISN ${esc(m.nisn)||"-"}</div></div>
+        <div class="seg" data-murid="${m.id}">
+          ${["H","I","S","A"].map(s=>`<button class="sel-${s} ${cur===s?'on':''}" onclick="PresensiApp.setStatus('${m.id}','${s}')">${s}</button>`).join("")}
+        </div>
+      </div>`;
+    }).join("");
+
+    return `
+      <div class="topbar">
+        <div><h2>Input Presensi — Kelas ${kelas}</h2><div class="desc">Pilih Hadir (H) / Izin (I) / Sakit (S) / Alpha (A) untuk setiap murid.</div></div>
+        <div class="field" style="min-width:180px;"><label>Tanggal</label>
+          <input type="date" id="presensi-tanggal" value="${tanggal}" onchange="PresensiApp.changeTanggal(this.value)"/></div>
+      </div>
+      <div class="card">
+        <div class="card-title">
+          ${fmtDateID(tanggal)}
+          <button class="btn btn-outline btn-sm" onclick="PresensiApp.markAllHadir()">Tandai Semua Hadir</button>
+        </div>
+        ${list.length? `<div id="att-list">${rows}</div>` : `<div class="empty"><div class="big">🎒</div>Belum ada murid terdaftar di Kelas ${kelas}. Hubungi admin.</div>`}
+        ${list.length? `<div style="margin-top:14px;"><button class="btn btn-primary" style="width:auto;" onclick="PresensiApp.saveAttendance('${kelas}','${tanggal}')">Simpan Presensi</button></div>`:""}
+      </div>`;
+  }
+
+  let pendingStatus = {}; // muridId -> status, staged before save
+  function setStatus(muridId, status){
+    pendingStatus[muridId] = status;
+    const seg = document.querySelector(`.seg[data-murid="${muridId}"]`);
+    seg.querySelectorAll("button").forEach(b=>b.classList.remove("on"));
+    seg.querySelector(".sel-"+status).classList.add("on");
+  }
+  function markAllHadir(){
+    document.querySelectorAll("#att-list .seg").forEach(seg=>{
+      const id = seg.getAttribute("data-murid");
+      setStatus(id, "H");
+    });
+  }
+  async function changeTanggal(val){
+    pendingStatus = {};
+    const kelas = kelasFromPenugasan(state.user.penugasan);
+    document.getElementById("main").innerHTML = await inputPresensiHtml(kelas, val);
+  }
+  async function saveAttendance(kelas, tanggal){
+    const murid = await getData("murid_list", []);
+    const list = murid.filter(m=>m.kelas===kelas);
+    // gather current UI state (from segs) merged with pendingStatus
+    const dayResult = {};
+    document.querySelectorAll("#att-list .seg").forEach(seg=>{
+      const id = seg.getAttribute("data-murid");
+      const onBtn = seg.querySelector("button.on");
+      if(onBtn){
+        const cls = [...onBtn.classList].find(c=>c.startsWith("sel-"));
+        dayResult[id] = cls.replace("sel-","");
+      }
+    });
+    const doSave = async ()=>{
+      const ym = tanggal.slice(0,7);
+      const monthData = await getData(`presensi:${kelas}:${ym}`, {});
+      monthData[tanggal] = dayResult;
+      const ok = await setData(`presensi:${kelas}:${ym}`, monthData);
+      if(ok){ toast("Presensi tanggal " + fmtDateID(tanggal) + " tersimpan."); pendingStatus={}; }
+      else toast("Gagal menyimpan. Coba lagi.");
+    };
+    if(Object.keys(dayResult).length < list.length){
+      showConfirm(
+        `Masih ada murid yang belum ditandai (${list.length - Object.keys(dayResult).length} murid). Simpan tetap dilanjutkan?`,
+        doSave,
+        {yesLabel:"Simpan", yesClass:"btn-gold"}
+      );
+    } else {
+      await doSave();
+    }
+  }
+
+  // ---- rekap ----
+  async function computeRecap(kelas, ym){
+    const murid = (await getData("murid_list", [])).filter(m=>m.kelas===kelas).sort((a,b)=>a.nama.localeCompare(b.nama));
+    const monthData = await getData(`presensi:${kelas}:${ym}`, {});
+    const dates = Object.keys(monthData).sort();
+    const summary = murid.map(m=>{
+      const c = {H:0,I:0,S:0,A:0};
+      dates.forEach(dt=>{ const s = monthData[dt][m.id]; if(s && c[s]!==undefined) c[s]++; });
+      const totalTercatat = c.H+c.I+c.S+c.A;
+      const pct = totalTercatat ? Math.round((c.H/totalTercatat)*1000)/10 : 0;
+      return {nama:m.nama, nisn:m.nisn, ...c, total: totalTercatat, pct};
+    });
+
+    const jumlahMurid = murid.length;
+    const today = new Date();
+    const isCurrentMonth = ym === thisMonthStr();
+    const upTo = isCurrentMonth ? today.getDate() : daysInMonth(ym);
+    const hariEfektif = Math.max(effectiveDaysUpTo(ym, upTo), 1);
+    const denom = Math.max(jumlahMurid * hariEfektif, 1);
+    const totals = summary.reduce((acc,m)=>{acc.H+=m.H;acc.I+=m.I;acc.S+=m.S;acc.A+=m.A;return acc;},{H:0,I:0,S:0,A:0});
+    const round1 = n => Math.round(n*1000)/10;
+    const classPct = {
+      sakit: round1(totals.S/denom*100),
+      izin: round1(totals.I/denom*100),
+      alpha: round1(totals.A/denom*100),
+      ketidakhadiran: round1((totals.I+totals.S+totals.A)/denom*100)
+    };
+
+    return {murid: summary, hariTercatat: dates.length, jumlahMurid, hariEfektif, totals, classPct};
+  }
+
+  async function rekapGuruHtml(kelas){
+    const ym = thisMonthStr();
+    return renderRekapBody(kelas, ym, true);
+  }
+  async function renderRekapBody(kelas, ym, isGuruView){
+    const {murid, hariTercatat, jumlahMurid, hariEfektif, classPct} = await computeRecap(kelas, ym);
+    const rows = murid.map((m,i)=>`
+      <tr>
+        <td>${i+1}</td><td>${esc(m.nama)}</td><td>${esc(m.nisn)||"-"}</td>
+        <td><span class="pill pill-h">${m.H}</span></td><td><span class="pill pill-i">${m.I}</span></td>
+        <td><span class="pill pill-s">${m.S}</span></td><td><span class="pill pill-a">${m.A}</span></td>
+        <td>${m.pct}%</td>
+      </tr>`).join("");
+    return `
+      <div class="topbar">
+        <div><h2>Rekap Bulanan — Kelas ${kelas}</h2><div class="desc">Hari yang tercatat pada bulan ini: ${hariTercatat} hari. Hari efektif (Senin–Sabtu): ${hariEfektif} hari.</div></div>
+        <div class="field" style="min-width:180px;"><label>Bulan</label>
+          <input type="month" id="rekap-month" value="${ym}" onchange="PresensiApp.changeRekapMonth('${kelas}', this.value, ${isGuruView})"/></div>
+      </div>
+      <div class="card">
+        <div class="card-title">
+          Tabel Rekap Kehadiran per Murid
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-gold btn-sm" onclick="PresensiApp.downloadRecap('${kelas}','${ym}')">⬇ Excel</button>
+            <button class="btn btn-outline btn-sm" onclick="PresensiApp.printRecap('${kelas}','${ym}')">🖶 Cetak / PDF</button>
+          </div>
+        </div>
+        ${murid.length? `<table><thead><tr><th>No</th><th>Nama</th><th>NISN</th><th>H</th><th>I</th><th>S</th><th>A</th><th>% Hadir</th></tr></thead>
+        <tbody>${rows}</tbody></table>` : `<div class="empty"><div class="big">📋</div>Belum ada data murid di kelas ini.</div>`}
+
+        ${murid.length? `
+        <div class="card-title" style="margin-top:22px;">Rekap Akumulasi Kelas ${kelas} (Bulanan)</div>
+        <div class="muted" style="margin-bottom:12px;">
+          Dihitung dari total hari kategori seluruh murid dibagi (jumlah murid × hari efektif) — ${jumlahMurid} murid × ${hariEfektif} hari efektif = ${jumlahMurid*hariEfektif} hari-murid.
+        </div>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="num" style="color:#2E5395;">${classPct.sakit}%</div><div class="lbl">Sakit</div></div>
+          <div class="stat-box"><div class="num" style="color:#B4720A;">${classPct.izin}%</div><div class="lbl">Izin</div></div>
+          <div class="stat-box"><div class="num" style="color:#B3261E;">${classPct.alpha}%</div><div class="lbl">Alpha</div></div>
+          <div class="stat-box"><div class="num" style="color:#1E7B45;">${classPct.ketidakhadiran}%</div><div class="lbl">Kehadiran*</div></div>
+        </div>
+        <div class="muted" style="margin-top:-6px;">*Persentase ketidakhadiran (Izin+Sakit+Alpha) terhadap total hari-murid, sesuai formula kelas.</div>
+        ` : ""}
+      </div>`;
+  }
+  async function changeRekapMonth(kelas, ym, isGuruView){
+    document.getElementById("main").innerHTML = await renderRekapBody(kelas, ym, isGuruView);
+  }
+
+  async function getSignerNames(kelas){
+    const gurus = await getData("guru_list", []);
+    const wali = gurus.find(g=>g.penugasan==="Guru Kelas "+kelas);
+    const kepsek = gurus.find(g=>g.penugasan==="Kepala Sekolah");
+    return {
+      wali: wali || {nama:"........................", nip:"........................"},
+      kepsek: kepsek || {nama:"........................", nip:"........................"}
+    };
+  }
+
+  async function downloadRecap(kelas, ym){
+    if(!kelas || !ym) return toast("Pilih kelas dan bulan terlebih dahulu.");
+    const {murid, jumlahMurid, hariEfektif, classPct} = await computeRecap(kelas, ym);
+    const signer = await getSignerNames(kelas);
+    const [y,m] = ym.split("-");
+    const bulanNama = BULAN_NAMA[parseInt(m,10)-1];
+
+    const wsData = [
+      [`REKAP PRESENSI KEHADIRAN — ${SCHOOL}`],
+      [`Kelas ${kelas} — ${bulanNama} ${y}`],
+      [],
+      ["No","Nama","NISN","Hadir","Izin","Sakit","Alpha","% Kehadiran"],
+      ...murid.map((m,i)=>[i+1, m.nama, m.nisn, m.H, m.I, m.S, m.A, m.pct+"%"]),
+      [],
+      [`Rekap Akumulasi Kelas (${jumlahMurid} murid × ${hariEfektif} hari efektif)`],
+      ["% Sakit", classPct.sakit+"%"],
+      ["% Izin", classPct.izin+"%"],
+      ["% Alpha", classPct.alpha+"%"],
+      ["% Kehadiran (ketidakhadiran: izin+sakit+alpha)", classPct.ketidakhadiran+"%"],
+      [],
+      ["", "Mengetahui,", "", "", "", "Reksosari, "+ (new Date()).getDate()+" "+bulanNama+" "+y],
+      ["", "Kepala Sekolah", "", "", "", "Guru Kelas "+kelas],
+      ["", "", "", "", "", ""],
+      ["", "", "", "", "", ""],
+      ["", signer.kepsek.nama, "", "", "", signer.wali.nama],
+      ["", "NIP. "+(signer.kepsek.nip||"-"), "", "", "", "NIP. "+(signer.wali.nip||"-")],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws["!cols"] = [{wch:5},{wch:24},{wch:16},{wch:8},{wch:8},{wch:8},{wch:8},{wch:12}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Rekap Kelas "+kelas);
+    XLSX.writeFile(wb, `Rekap_Presensi_Kelas${kelas}_${ym}.xlsx`);
+    toast("File Excel diunduh.");
+  }
+
+  function downloadBlob(blob, filename){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=> URL.revokeObjectURL(url), 5000);
+  }
+
+  async function showPdfPreview(doc, filename){
+    const pdfBytes = doc.output("arraybuffer");
+    const blob = new Blob([pdfBytes], {type:"application/pdf"});
+
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(10,20,40,.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:18px;";
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:12px;width:100%;max-width:960px;height:92vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.35);overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);flex-shrink:0;">
+          <div style="font-weight:700;color:var(--navy-2);font-size:14px;">Pratinjau PDF — ${esc(filename)}</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-gold btn-sm" id="pdf-download-btn">⬇ Unduh PDF</button>
+            <button class="btn btn-outline btn-sm" id="pdf-close-btn">Tutup</button>
+          </div>
+        </div>
+        <div id="pdf-canvas-wrap" style="flex:1;overflow:auto;background:#525659;padding:18px;display:flex;flex-direction:column;align-items:center;gap:14px;">
+          <div style="color:#fff;font-size:13px;">Memuat pratinjau...</div>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector("#pdf-close-btn").onclick = ()=> overlay.remove();
+    overlay.querySelector("#pdf-download-btn").onclick = ()=> downloadBlob(blob, filename);
+
+    try{
+      const pdfjsLib = window["pdfjs-dist/build/pdf"];
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      const pdf = await pdfjsLib.getDocument({data: pdfBytes.slice(0)}).promise;
+      const wrap = overlay.querySelector("#pdf-canvas-wrap");
+      wrap.innerHTML = "";
+      for(let i=1;i<=pdf.numPages;i++){
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({scale:1.4});
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        canvas.style.cssText = "background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.35);max-width:100%;height:auto;";
+        await page.render({canvasContext: canvas.getContext("2d"), viewport}).promise;
+        wrap.appendChild(canvas);
+      }
+    }catch(err){
+      console.error(err);
+      overlay.querySelector("#pdf-canvas-wrap").innerHTML =
+        `<div style="color:#fff;font-size:13px;text-align:center;max-width:360px;">Pratinjau tidak dapat ditampilkan, tetapi file PDF tetap bisa diunduh lewat tombol di atas.</div>`;
+    }
+  }
+
+  async function printRecap(kelas, ym){
+    if(!kelas || !ym) return toast("Pilih kelas dan bulan terlebih dahulu.");
+    const {murid, jumlahMurid, hariEfektif, classPct} = await computeRecap(kelas, ym);
+    const signer = await getSignerNames(kelas);
+    const [y,m] = ym.split("-");
+    const bulanNama = BULAN_NAMA[parseInt(m,10)-1];
+    const todayFmt = fmtDateID(todayStr());
+
+    try{
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({unit:"mm", format:"a4", orientation:"landscape"});
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+
+      doc.setFont("helvetica","bold");
+      doc.setFontSize(14);
+      doc.text(SCHOOL, pageW/2, 16, {align:"center"});
+      doc.setFont("helvetica","normal");
+      doc.setFontSize(10.5);
+      doc.text(`Rekap Presensi Kehadiran — Kelas ${kelas} — ${bulanNama} ${y}`, pageW/2, 23, {align:"center"});
+
+      doc.autoTable({
+        startY: 30,
+        margin:{left:18,right:18},
+        head: [["No","Nama","NISN","Hadir","Izin","Sakit","Alpha","% Hadir"]],
+        body: murid.map((mm,i)=>[i+1, mm.nama, mm.nisn||"-", mm.H, mm.I, mm.S, mm.A, mm.pct+"%"]),
+        styles:{ font:"helvetica", fontSize:9.5, cellPadding:3, halign:"center" },
+        columnStyles:{ 1:{halign:"left"}, 2:{halign:"left"} },
+        headStyles:{ fillColor:[31,56,100], textColor:255, halign:"center" },
+        theme:"grid"
+      });
+
+      let yPos = doc.lastAutoTable.finalY + 10;
+      doc.setFont("helvetica","bold");
+      doc.setFontSize(9.5);
+      doc.text(`Rekap Akumulasi Kelas (${jumlahMurid} murid × ${hariEfektif} hari efektif)`, 18, yPos);
+
+      doc.autoTable({
+        startY: yPos + 3,
+        margin:{left:18,right:18},
+        tableWidth: 130,
+        body: [
+          ["% Sakit", classPct.sakit+"%"],
+          ["% Izin", classPct.izin+"%"],
+          ["% Alpha", classPct.alpha+"%"],
+          ["% Kehadiran (ketidakhadiran: izin+sakit+alpha)", classPct.ketidakhadiran+"%"]
+        ],
+        styles:{ font:"helvetica", fontSize:9, cellPadding:2.5 },
+        columnStyles:{ 1:{halign:"center"} },
+        theme:"grid"
+      });
+
+      let sigY = doc.lastAutoTable.finalY + 20;
+      if(sigY > pageH - 45){ doc.addPage("a4","landscape"); sigY = 30; }
+      const leftX = pageW*0.27, rightX = pageW*0.75;
+      doc.setFont("helvetica","normal");
+      doc.setFontSize(10);
+      doc.text("Mengetahui,", leftX, sigY, {align:"center"});
+      doc.text("Kepala Sekolah", leftX, sigY+5, {align:"center"});
+      doc.text(`Reksosari, ${todayFmt}`, rightX, sigY, {align:"center"});
+      doc.text(`Guru Kelas ${kelas}`, rightX, sigY+5, {align:"center"});
+
+      const nameY = sigY + 30;
+      doc.text(signer.kepsek.nama, leftX, nameY, {align:"center"});
+      doc.text(`NIP. ${signer.kepsek.nip||"-"}`, leftX, nameY+5, {align:"center"});
+      doc.text(signer.wali.nama, rightX, nameY, {align:"center"});
+      doc.text(`NIP. ${signer.wali.nip||"-"}`, rightX, nameY+5, {align:"center"});
+
+      showPdfPreview(doc, `Rekap_Presensi_Kelas${kelas}_${ym}.pdf`);
+    }catch(err){
+      console.error(err);
+      toast("Gagal membuat PDF. Coba lagi.");
+    }
+  }
+
+  function go(key){
+    if(state.user.role==="admin") renderAdmin(key);
+    else if(state.user.role==="kepsek") renderKepsek(key);
+    else renderGuru(key);
+  }
+
+  window.PresensiApp = {
+    login, logout, go,
+    saveGuru, editGuru, cancelGuruEdit, deleteGuru,
+    saveMurid, editMurid, cancelMuridEdit, deleteMurid,
+    handleFileImport, confirmFileImport, cancelFileImport,
+    changeMonitorMonth, saveAdminAccount,
+    setStatus, markAllHadir, changeTanggal, saveAttendance,
+    changeRekapMonth, downloadRecap, printRecap
+  };
+
+  renderLogin();
+})();
+</script>
+
+</body>
+</html>
