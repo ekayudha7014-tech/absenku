@@ -927,7 +927,8 @@
 
     try{
       const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({unit:"mm", format:"a4", orientation:"landscape"});
+      const doc = new jsPDF({unit:"mm", format:"a4", orientation:"potrait"});
+      if(sigY > pageH - 45){ doc.addPage("a4","portrait"); sigY = 30; }
       const pageW = doc.internal.pageSize.getWidth();
       const pageH = doc.internal.pageSize.getHeight();
 
