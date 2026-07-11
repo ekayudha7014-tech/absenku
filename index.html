@@ -261,7 +261,7 @@
           <div class="field"><label>Username</label><input id="login-user" placeholder="Masukkan username" autocomplete="username"/></div>
           <div class="field"><label>Kata Sandi</label><input id="login-pass" type="password" placeholder="Masukkan kata sandi" autocomplete="current-password"/></div>
           <button class="btn btn-primary" onclick="PresensiApp.login()">Masuk</button>
-          <div class="login-hint">Silakan login dengan user dan password dari admin</div>
+          <div class="login-hint">Admin default: <b>admin</b> / <b>admin123</b><br/>Akun guru dibuat oleh admin.</div>
         </div>
       </div>`;
     document.getElementById("login-pass").addEventListener("keydown", e=>{ if(e.key==="Enter") login(); });
@@ -927,7 +927,7 @@
 
     try{
       const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({unit:"mm", format:"a4", orientation:"potrait"});
+      const doc = new jsPDF({unit:"mm", format:"a4", orientation:"portrait"});
       const pageW = doc.internal.pageSize.getWidth();
       const pageH = doc.internal.pageSize.getHeight();
 
@@ -970,7 +970,7 @@
       });
 
       let sigY = doc.lastAutoTable.finalY + 20;
-      if(sigY > pageH - 45){ doc.addPage("a4","landscape"); sigY = 30; }
+      if(sigY > pageH - 45){ doc.addPage("a4","portrait"); sigY = 30; }
       const leftX = pageW*0.27, rightX = pageW*0.75;
       doc.setFont("helvetica","normal");
       doc.setFontSize(10);
