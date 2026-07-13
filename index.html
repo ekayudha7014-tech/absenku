@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Presensi Digital — SD Negeri Reksosari 01</title>
+<title>Sistem Manajemen Sekolah — SD Negeri Reksosari 01</title>
 </head>
 <body>
 <style>
@@ -148,7 +148,22 @@
   const SCHOOL = "SD Negeri Reksosari 01";
   const KELAS_LIST = ["1","2","3","4","5","6"];
   const BULAN_NAMA = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+  const HARI_NAMA = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
   const STATUS_LABEL = {H:"Hadir", I:"Izin", S:"Sakit", A:"Alpha"};
+  const JK_LIST = [{v:"L",l:"Laki-laki"},{v:"P",l:"Perempuan"}];
+  const AGAMA_LIST = ["Islam","Kristen Protestan","Katolik","Hindu","Buddha","Konghucu"];
+  // kelompok usia untuk rekap: batas atas tiap kelompok (kelompok terakhir = 13 tahun ke atas)
+  const USIA_GROUPS = [
+    {key:"5-", label:"≤ 5 th", test:(u)=> u<=5},
+    {key:"6",  label:"6 th",  test:(u)=> u===6},
+    {key:"7",  label:"7 th",  test:(u)=> u===7},
+    {key:"8",  label:"8 th",  test:(u)=> u===8},
+    {key:"9",  label:"9 th",  test:(u)=> u===9},
+    {key:"10", label:"10 th", test:(u)=> u===10},
+    {key:"11", label:"11 th", test:(u)=> u===11},
+    {key:"12", label:"12 th", test:(u)=> u===12},
+    {key:"13+",label:"≥ 13 th", test:(u)=> u>=13},
+  ];
 
   let state = { user:null, view:null };
   let pendingImportRows = [];
@@ -200,15 +215,48 @@
     const [y,m,d]=iso.split("-"); return `${d} ${BULAN_NAMA[parseInt(m,10)-1]} ${y}`;
   }
   function daysInMonth(ym){ const [y,m]=ym.split("-").map(Number); return new Date(y,m,0).getDate(); }
-  // hari efektif = Senin s.d. Sabtu (asumsi tanpa memperhitungkan hari libur nasional)
-  function effectiveDaysUpTo(ym, upToDay){
+
+  // ---- kalender hari efektif (dapat diatur admin per bulan) ----
+  // default: Senin s.d. Sabtu efektif, Minggu libur
+  function defaultEfektifMap(ym){
     const [y,m]=ym.split("-").map(Number);
-    let count=0;
-    for(let d=1; d<=upToDay; d++){
+    const n = daysInMonth(ym);
+    const map = {};
+    for(let d=1; d<=n; d++){
       const day = new Date(y, m-1, d).getDay(); // 0=Min
-      if(day!==0) count++;
+      map[d] = day!==0;
     }
+    return map;
+  }
+  async function getEfektifMap(ym){
+    const saved = await getData(`hari_efektif:${ym}`, null, true);
+    const def = defaultEfektifMap(ym);
+    if(!saved) return def;
+    // gabungkan supaya tanggal baru (mis. ganti bulan berbeda panjang) tetap punya nilai default
+    return Object.assign({}, def, saved);
+  }
+  // hari efektif = jumlah hari berstatus efektif (sesuai pengaturan admin) dari tanggal 1 s.d. upToDay
+  async function effectiveDaysUpTo(ym, upToDay){
+    const map = await getEfektifMap(ym);
+    let count=0;
+    for(let d=1; d<=upToDay; d++){ if(map[d]) count++; }
     return count;
+  }
+
+  // ---- usia murid ----
+  function calcAge(tglLahirISO, refISO){
+    if(!tglLahirISO) return null;
+    const b = new Date(tglLahirISO);
+    if(isNaN(b.getTime())) return null;
+    const r = new Date(refISO);
+    let age = r.getFullYear() - b.getFullYear();
+    const m = r.getMonth() - b.getMonth();
+    if(m<0 || (m===0 && r.getDate()<b.getDate())) age--;
+    return age;
+  }
+  function usiaGroupOf(u){
+    if(u===null || u===undefined) return null;
+    return USIA_GROUPS.find(g=>g.test(u)) || null;
   }
 
   function toast(msg){
@@ -261,7 +309,7 @@
           <div class="field"><label>Username</label><input id="login-user" placeholder="Masukkan username" autocomplete="username"/></div>
           <div class="field"><label>Kata Sandi</label><input id="login-pass" type="password" placeholder="Masukkan kata sandi" autocomplete="current-password"/></div>
           <button class="btn btn-primary" onclick="PresensiApp.login()">Masuk</button>
-          <div class="login-hint">Silakan login dengan user dan password dari admin</div>
+          <div class="login-hint">Admin default: <b>admin</b> / <b>admin123</b><br/>Akun guru dibuat oleh admin.</div>
         </div>
       </div>`;
     document.getElementById("login-pass").addEventListener("keydown", e=>{ if(e.key==="Enter") login(); });
@@ -308,8 +356,10 @@
   const adminNav = [
     {key:"guru", label:"Kelola Guru", icon:"👤"},
     {key:"murid", label:"Kelola Murid", icon:"🎒"},
+    {key:"usia", label:"Rekap Usia Murid", icon:"🎂"},
     {key:"monitor", label:"Pantau Presensi", icon:"📊"},
     {key:"laporan", label:"Unduh Laporan", icon:"⬇"},
+    {key:"kalender", label:"Hari Efektif", icon:"📅"},
     {key:"akun", label:"Akun Admin", icon:"⚙"},
   ];
 
@@ -318,8 +368,10 @@
     let content = "";
     if(tab==="guru") content = await guruManageHtml();
     else if(tab==="murid") content = await muridManageHtml();
+    else if(tab==="usia") content = await usiaHtml();
     else if(tab==="monitor") content = await monitorHtml();
     else if(tab==="laporan") content = await laporanAdminHtml();
+    else if(tab==="kalender") content = await kalenderHtml();
     else if(tab==="akun") content = adminAccountHtml();
     shell(adminNav, tab, content, "Administrator");
     wireTabExtras(tab);
@@ -412,6 +464,9 @@
     const rows = murid.sort((a,b)=> (a.kelas+a.nama).localeCompare(b.kelas+b.nama)).map(m=>`
       <tr>
         <td>${esc(m.nama)}</td><td>${esc(m.nisn)}</td><td>Kelas ${esc(m.kelas)}</td>
+        <td>${m.jk==="P"?"Perempuan":m.jk==="L"?"Laki-laki":"-"}</td>
+        <td>${esc(m.agama)||"-"}</td>
+        <td>${esc(m.tempat_lahir)||"-"}${m.tanggal_lahir? ", "+fmtDateID(m.tanggal_lahir) : ""}</td>
         <td>
           <button class="btn btn-outline btn-sm" onclick="PresensiApp.editMurid('${m.id}')">Ubah</button>
           <button class="btn btn-danger btn-sm" onclick="PresensiApp.deleteMurid('${m.id}')">Hapus</button>
@@ -426,6 +481,10 @@
           <div class="field"><label>Nama Lengkap</label><input id="m-nama" placeholder="Nama murid"/></div>
           <div class="field"><label>NISN</label><input id="m-nisn" placeholder="Nomor Induk Siswa Nasional"/></div>
           <div class="field"><label>Kelas</label><select id="m-kelas">${KELAS_LIST.map(k=>`<option value="${k}">Kelas ${k}</option>`).join("")}</select></div>
+          <div class="field"><label>Jenis Kelamin</label><select id="m-jk">${JK_LIST.map(o=>`<option value="${o.v}">${o.l}</option>`).join("")}</select></div>
+          <div class="field"><label>Agama</label><select id="m-agama">${AGAMA_LIST.map(a=>`<option value="${a}">${a}</option>`).join("")}</select></div>
+          <div class="field"><label>Tempat Lahir</label><input id="m-tempat" placeholder="Tempat lahir"/></div>
+          <div class="field"><label>Tanggal Lahir</label><input type="date" id="m-tgl"/></div>
         </div>
         <div style="margin-top:8px;display:flex;gap:8px;">
           <button class="btn btn-gold" onclick="PresensiApp.saveMurid()">Simpan Murid</button>
@@ -434,13 +493,13 @@
       </div>
       <div class="card">
         <div class="card-title">Impor dari File Excel / CSV</div>
-        <div class="muted" style="margin-bottom:8px;">File harus memiliki baris judul kolom berisi <b>nama</b>, <b>nisn</b>, dan <b>kelas</b> (urutan kolom bebas). Format didukung: .csv, .xlsx, .xls.</div>
+        <div class="muted" style="margin-bottom:8px;">File harus memiliki baris judul kolom berisi <b>nama</b>, <b>nisn</b>, dan <b>kelas</b> (urutan kolom bebas). Kolom opsional: <b>jenis kelamin</b>, <b>agama</b>, <b>tempat lahir</b>, <b>tanggal lahir</b>. Format didukung: .csv, .xlsx, .xls.</div>
         <input type="file" id="file-import-input" accept=".csv,.xlsx,.xls" onchange="PresensiApp.handleFileImport(event)"/>
         <div id="import-preview"></div>
       </div>
       <div class="card">
         <div class="card-title">Daftar Murid (${murid.length})</div>
-        ${murid.length? `<table><thead><tr><th>Nama</th><th>NISN</th><th>Kelas</th><th>Aksi</th></tr></thead><tbody>${rows}</tbody></table>`
+        ${murid.length? `<table><thead><tr><th>Nama</th><th>NISN</th><th>Kelas</th><th>L/P</th><th>Agama</th><th>Tempat, Tgl Lahir</th><th>Aksi</th></tr></thead><tbody>${rows}</tbody></table>`
           : `<div class="empty"><div class="big">🎒</div>Belum ada data murid.</div>`}
       </div>`;
   }
@@ -449,10 +508,14 @@
     const nama = document.getElementById("m-nama").value.trim();
     const nisn = document.getElementById("m-nisn").value.trim();
     const kelas = document.getElementById("m-kelas").value;
+    const jk = document.getElementById("m-jk").value;
+    const agama = document.getElementById("m-agama").value;
+    const tempat_lahir = document.getElementById("m-tempat").value.trim();
+    const tanggal_lahir = document.getElementById("m-tgl").value;
     if(!nama) return toast("Nama murid wajib diisi.");
     let murid = await getData("murid_list", []);
-    if(id) murid = murid.map(m=> m.id===id ? {...m, nama, nisn, kelas} : m);
-    else murid.push({id:uid("m"), nama, nisn, kelas});
+    if(id) murid = murid.map(m=> m.id===id ? {...m, nama, nisn, kelas, jk, agama, tempat_lahir, tanggal_lahir} : m);
+    else murid.push({id:uid("m"), nama, nisn, kelas, jk, agama, tempat_lahir, tanggal_lahir});
     await setData("murid_list", murid);
     toast("Data murid tersimpan.");
     renderAdmin("murid");
@@ -466,6 +529,10 @@
     document.getElementById("m-nama").value=m.nama;
     document.getElementById("m-nisn").value=m.nisn;
     document.getElementById("m-kelas").value=m.kelas;
+    if(m.jk) document.getElementById("m-jk").value=m.jk;
+    if(m.agama) document.getElementById("m-agama").value=m.agama;
+    document.getElementById("m-tempat").value=m.tempat_lahir||"";
+    document.getElementById("m-tgl").value=m.tanggal_lahir||"";
     document.getElementById("murid-cancel").classList.remove("hidden");
   }
   function cancelMuridEdit(){ renderAdmin("murid"); }
@@ -507,11 +574,35 @@
     const kNama = findKey(/nama/i);
     const kNisn = findKey(/nisn/i);
     const kKelas = findKey(/kelas/i);
+    const kJk = findKey(/jenis\s*kelamin|^jk$|gender/i);
+    const kAgama = findKey(/agama/i);
+    const kTempat = findKey(/tempat/i);
+    const kTgl = findKey(/tanggal\s*lahir|tgl\s*lahir|tgl_lahir/i);
     if(!kNama){ toast("Kolom 'nama' tidak ditemukan. Pastikan baris judul kolom berisi nama, nisn, kelas."); return; }
+    const normJk = (v)=>{
+      v = (v||"").toString().trim().toUpperCase();
+      if(v.startsWith("L")) return "L";
+      if(v.startsWith("P")) return "P";
+      return "";
+    };
+    const normTgl = (v)=>{
+      if(!v) return "";
+      if(v instanceof Date && !isNaN(v)) return v.getFullYear()+"-"+pad(v.getMonth()+1)+"-"+pad(v.getDate());
+      const s = v.toString().trim();
+      let m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s);
+      if(m) return m[1]+"-"+pad(+m[2])+"-"+pad(+m[3]);
+      m = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/.exec(s);
+      if(m) return m[3]+"-"+pad(+m[2])+"-"+pad(+m[1]);
+      return "";
+    };
     pendingImportRows = json.map(row=>({
       nama: (row[kNama]||"").toString().trim(),
       nisn: kNisn ? (row[kNisn]||"").toString().trim() : "",
-      kelas: kKelas ? (row[kKelas]||"").toString().replace(/\D/g,"") : ""
+      kelas: kKelas ? (row[kKelas]||"").toString().replace(/\D/g,"") : "",
+      jk: kJk ? normJk(row[kJk]) : "",
+      agama: kAgama ? (row[kAgama]||"").toString().trim() : "",
+      tempat_lahir: kTempat ? (row[kTempat]||"").toString().trim() : "",
+      tanggal_lahir: kTgl ? normTgl(row[kTgl]) : ""
     })).filter(r=>r.nama);
     if(!pendingImportRows.length){ toast("Tidak ada baris data murid yang valid ditemukan."); return; }
     renderImportPreview();
@@ -537,7 +628,8 @@
     if(!pendingImportRows.length) return;
     let murid = await getData("murid_list", []);
     pendingImportRows.forEach(r=>{
-      murid.push({id:uid("m"), nama:r.nama, nisn:r.nisn, kelas:r.kelas||"1"});
+      murid.push({id:uid("m"), nama:r.nama, nisn:r.nisn, kelas:r.kelas||"1",
+        jk:r.jk||"", agama:r.agama||"", tempat_lahir:r.tempat_lahir||"", tanggal_lahir:r.tanggal_lahir||""});
     });
     await setData("murid_list", murid);
     const count = pendingImportRows.length;
@@ -551,6 +643,52 @@
     renderImportPreview();
   }
 
+  // ---- rekap usia murid ----
+  async function usiaHtml(ym){
+    ym = ym || thisMonthStr();
+    const murid = await getData("murid_list", []);
+    const isCurrentMonth = ym === thisMonthStr();
+    const refDate = isCurrentMonth ? todayStr() : `${ym}-${pad(daysInMonth(ym))}`;
+
+    // hitung usia tiap murid pada tanggal referensi (akhir bulan terpilih, atau hari ini jika bulan berjalan)
+    const withAge = murid.map(m=>{
+      const usia = calcAge(m.tanggal_lahir, refDate);
+      const grp = usiaGroupOf(usia);
+      return {...m, usia, grp};
+    });
+    const belumAda = withAge.filter(m=>m.usia===null).length;
+
+    // tabel: baris kelas, kolom kelompok usia
+    let theadCols = USIA_GROUPS.map(g=>`<th style="text-align:center;">${g.label}</th>`).join("");
+    let rows = "";
+    const totalPerGroup = {}; USIA_GROUPS.forEach(g=>totalPerGroup[g.key]=0);
+    let totalMurid = 0;
+    for(const k of KELAS_LIST){
+      const list = withAge.filter(m=>m.kelas===k);
+      const counts = {}; USIA_GROUPS.forEach(g=>counts[g.key]=0);
+      list.forEach(m=>{ if(m.grp){ counts[m.grp.key]++; totalPerGroup[m.grp.key]++; } });
+      totalMurid += list.length;
+      rows += `<tr><td><b>Kelas ${k}</b></td>${USIA_GROUPS.map(g=>`<td style="text-align:center;">${counts[g.key]||0}</td>`).join("")}<td style="text-align:center;font-weight:700;">${list.length}</td></tr>`;
+    }
+    const totalRow = `<tr style="background:#f7f9fc;"><td><b>Total</b></td>${USIA_GROUPS.map(g=>`<td style="text-align:center;font-weight:700;">${totalPerGroup[g.key]}</td>`).join("")}<td style="text-align:center;font-weight:700;">${totalMurid}</td></tr>`;
+
+    return `
+      <div class="topbar">
+        <div><h2>Rekap Usia Murid</h2><div class="desc">Dikelompokkan menurut usia per tanggal ${fmtDateID(refDate)}${isCurrentMonth? " (hari ini)":" (akhir bulan)"}.</div></div>
+        <div class="field" style="min-width:180px;"><label>Pilih Bulan</label>
+          <input type="month" id="usia-month" value="${ym}" onchange="PresensiApp.changeUsiaMonth(this.value)"/></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Rekap Kelompok Usia per Kelas</div>
+        <table><thead><tr><th>Kelas</th>${theadCols}<th style="text-align:center;">Jumlah</th></tr></thead>
+        <tbody>${rows}${totalRow}</tbody></table>
+        ${belumAda? `<div class="muted" style="margin-top:10px;">⚠ ${belumAda} murid belum memiliki data tanggal lahir sehingga tidak masuk hitungan kelompok usia. Lengkapi di menu Kelola Murid.</div>` : ""}
+      </div>`;
+  }
+  async function changeUsiaMonth(ym){
+    document.getElementById("main").innerHTML = await usiaHtml(ym);
+  }
+
   // ---- monitoring ----
   async function monitorHtml(ym){
     ym = ym || thisMonthStr();
@@ -558,7 +696,7 @@
     const today = new Date();
     const isCurrentMonth = ym === thisMonthStr();
     const upTo = isCurrentMonth ? today.getDate() : daysInMonth(ym);
-    const effDays = Math.max(effectiveDaysUpTo(ym, upTo), 1);
+    const effDays = Math.max(await effectiveDaysUpTo(ym, upTo), 1);
 
     let rows="";
     for(const k of KELAS_LIST){
@@ -576,7 +714,7 @@
     }
     return `
       <div class="topbar">
-        <div><h2>Pantau Progres Presensi</h2><div class="desc">Persentase hari yang sudah diisi guru dibanding hari efektif (Senin–Sabtu) bulan berjalan.</div></div>
+        <div><h2>Pantau Progres Presensi</h2><div class="desc">Persentase hari yang sudah diisi guru dibanding hari efektif (sesuai pengaturan kalender) bulan berjalan.</div></div>
         <div class="field" style="min-width:180px;"><label>Pilih Bulan</label>
           <input type="month" id="monitor-month" value="${ym}" onchange="PresensiApp.changeMonitorMonth(this.value)"/></div>
       </div>
@@ -618,6 +756,71 @@
     if(!u || !p) return toast("Username dan kata sandi wajib diisi.");
     await setData("admin", {username:u, password:p});
     toast("Akun admin diperbarui. Gunakan username/kata sandi baru saat login berikutnya.");
+  }
+
+  // ---- pengaturan hari efektif belajar ----
+  let pendingEfektifMap = null; // staged in-memory before save
+  let pendingEfektifYm = null;
+
+  async function kalenderHtml(ym){
+    ym = ym || thisMonthStr();
+    if(pendingEfektifYm !== ym){
+      pendingEfektifMap = await getEfektifMap(ym);
+      pendingEfektifYm = ym;
+    }
+    const n = daysInMonth(ym);
+    const [y,m] = ym.split("-").map(Number);
+    let jumlahEfektif = 0;
+    const dayCells = [];
+    for(let d=1; d<=n; d++){
+      const dow = new Date(y, m-1, d).getDay();
+      const isEfektif = !!pendingEfektifMap[d];
+      if(isEfektif) jumlahEfektif++;
+      const isMinggu = dow===0;
+      dayCells.push(`
+        <div style="border:1.5px solid var(--line);border-radius:8px;padding:8px 6px;text-align:center;background:${isEfektif?'#fff':'#FBEAE9'};">
+          <div style="font-size:11px;color:${isMinggu?'var(--red)':'var(--muted)'};">${HARI_NAMA[dow]}</div>
+          <div style="font-family:Georgia,serif;font-size:16px;font-weight:bold;color:var(--navy-2);margin:2px 0 6px;">${d}</div>
+          <button class="btn btn-sm ${isEfektif?'btn-gold':'btn-outline'}" style="width:100%;padding:4px 4px;font-size:11px;"
+            onclick="PresensiApp.toggleHariEfektif(${d})">${isEfektif? 'Efektif':'Libur'}</button>
+        </div>`);
+    }
+    return `
+      <div class="topbar">
+        <div><h2>Pengaturan Hari Efektif Belajar</h2><div class="desc">Tandai tanggal sebagai <b>Efektif</b> (hari sekolah/masuk) atau <b>Libur</b> untuk 1 bulan. Bawaan: Senin–Sabtu efektif, Minggu libur. Pengaturan ini dipakai untuk menghitung persentase kehadiran &amp; progres presensi.</div></div>
+        <div class="field" style="min-width:180px;"><label>Pilih Bulan</label>
+          <input type="month" id="kalender-month" value="${ym}" onchange="PresensiApp.changeKalenderMonth(this.value)"/></div>
+      </div>
+      <div class="card">
+        <div class="card-title">
+          ${BULAN_NAMA[m-1]} ${y} — <span id="kalender-jumlah">${jumlahEfektif}</span> hari efektif dari ${n} hari
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-outline btn-sm" onclick="PresensiApp.resetKalenderDefault()">Kembalikan Bawaan</button>
+            <button class="btn btn-gold btn-sm" onclick="PresensiApp.saveKalender()">Simpan Pengaturan</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:8px;" id="kalender-grid">
+          ${dayCells.join("")}
+        </div>
+      </div>`;
+  }
+  async function changeKalenderMonth(ym){
+    document.getElementById("main").innerHTML = await kalenderHtml(ym);
+  }
+  function toggleHariEfektif(d){
+    if(!pendingEfektifMap) return;
+    pendingEfektifMap[d] = !pendingEfektifMap[d];
+    kalenderHtml(pendingEfektifYm).then(html=>{ document.getElementById("main").innerHTML = html; });
+  }
+  async function resetKalenderDefault(){
+    pendingEfektifMap = defaultEfektifMap(pendingEfektifYm);
+    document.getElementById("main").innerHTML = await kalenderHtml(pendingEfektifYm);
+  }
+  async function saveKalender(){
+    if(!pendingEfektifMap || !pendingEfektifYm) return;
+    const ok = await setData(`hari_efektif:${pendingEfektifYm}`, pendingEfektifMap, true);
+    if(ok) toast("Pengaturan hari efektif untuk "+pendingEfektifYm+" tersimpan.");
+    else toast("Gagal menyimpan. Coba lagi.");
   }
 
   function wireTabExtras(){ /* placeholder for future dynamic bindings */ }
@@ -752,7 +955,7 @@
     const today = new Date();
     const isCurrentMonth = ym === thisMonthStr();
     const upTo = isCurrentMonth ? today.getDate() : daysInMonth(ym);
-    const hariEfektif = Math.max(effectiveDaysUpTo(ym, upTo), 1);
+    const hariEfektif = Math.max(await effectiveDaysUpTo(ym, upTo), 1);
     const denom = Math.max(jumlahMurid * hariEfektif, 1);
     const totals = summary.reduce((acc,m)=>{acc.H+=m.H;acc.I+=m.I;acc.S+=m.S;acc.A+=m.A;return acc;},{H:0,I:0,S:0,A:0});
     const round1 = n => Math.round(n*1000)/10;
@@ -781,7 +984,7 @@
       </tr>`).join("");
     return `
       <div class="topbar">
-        <div><h2>Rekap Bulanan — Kelas ${kelas}</h2><div class="desc">Hari yang tercatat pada bulan ini: ${hariTercatat} hari. Hari efektif (Senin–Sabtu): ${hariEfektif} hari.</div></div>
+        <div><h2>Rekap Bulanan — Kelas ${kelas}</h2><div class="desc">Hari yang tercatat pada bulan ini: ${hariTercatat} hari. Hari efektif (sesuai pengaturan kalender): ${hariEfektif} hari.</div></div>
         <div class="field" style="min-width:180px;"><label>Bulan</label>
           <input type="month" id="rekap-month" value="${ym}" onchange="PresensiApp.changeRekapMonth('${kelas}', this.value, ${isGuruView})"/></div>
       </div>
@@ -1005,7 +1208,9 @@
     handleFileImport, confirmFileImport, cancelFileImport,
     changeMonitorMonth, saveAdminAccount,
     setStatus, markAllHadir, changeTanggal, saveAttendance,
-    changeRekapMonth, downloadRecap, printRecap
+    changeRekapMonth, downloadRecap, printRecap,
+    changeUsiaMonth,
+    changeKalenderMonth, toggleHariEfektif, resetKalenderDefault, saveKalender
   };
 
   renderLogin();
