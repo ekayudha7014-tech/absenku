@@ -295,6 +295,7 @@
   function kelasFromPenugasan(p){
     const m = /^Guru Kelas (\d+)$/.exec(p||""); return m ? m[1] : null;
   }
+  function isMapelPenugasan(p){ return p === "Guru Mapel / Lainnya"; }
 
   const root = document.getElementById("app");
 
@@ -362,6 +363,7 @@
     {key:"monitor", label:"Pantau Presensi", icon:"📊"},
     {key:"laporan", label:"Unduh Laporan", icon:"⬇"},
     {key:"kalender", label:"Hari Efektif", icon:"📅"},
+    {key:"semester", label:"Laporan Semester", icon:"📈"},
     {key:"akun", label:"Akun Admin", icon:"⚙"},
   ];
 
@@ -374,6 +376,7 @@
     else if(tab==="monitor") content = await monitorHtml();
     else if(tab==="laporan") content = await laporanAdminHtml();
     else if(tab==="kalender") content = await kalenderHtml();
+    else if(tab==="semester"){ const s = semesterDefaults(); content = await semesterHtml(s.kelas, s.tahunAwal, s.semester); }
     else if(tab==="akun") content = adminAccountHtml();
     shell(adminNav, tab, content, "Administrator");
     wireTabExtras(tab);
@@ -381,28 +384,42 @@
 
   async function guruManageHtml(){
     const gurus = await getData("guru_list", []);
-    const rows = gurus.map(g=>`
+    const rows = gurus.map(g=>{
+      const penugasanLabel = isMapelPenugasan(g.penugasan) && g.mapel
+        ? `${esc(g.penugasan)} — ${esc(g.mapel)}${(g.kelasAjar&&g.kelasAjar.length)? " (Kelas "+g.kelasAjar.join(", ")+")":""}`
+        : esc(g.penugasan);
+      return `
       <tr>
         <td>${esc(g.nama)}</td>
         <td>${esc(g.nip)}</td>
-        <td>${esc(g.penugasan)}</td>
+        <td>${penugasanLabel}</td>
         <td>${esc(g.username)}</td>
         <td>
           <button class="btn btn-outline btn-sm" onclick="PresensiApp.editGuru('${g.id}')">Ubah</button>
           <button class="btn btn-danger btn-sm" onclick="PresensiApp.deleteGuru('${g.id}')">Hapus</button>
         </td>
-      </tr>`).join("");
+      </tr>`;}).join("");
     return `
-      <div class="topbar"><div><h2>Kelola Data Guru</h2><div class="desc">Tambahkan akun guru, wali kelas, dan kepala sekolah.</div></div></div>
+      <div class="topbar"><div><h2>Kelola Data Guru</h2><div class="desc">Tambahkan akun guru, wali kelas, guru mata pelajaran, dan kepala sekolah.</div></div></div>
       <div class="card">
         <div class="card-title" id="guru-form-title">Tambah Guru</div>
         <input type="hidden" id="guru-edit-id"/>
         <div class="row-form">
           <div class="field"><label>Nama Lengkap</label><input id="g-nama" placeholder="Nama guru"/></div>
           <div class="field"><label>NIP</label><input id="g-nip" placeholder="Nomor Induk Pegawai"/></div>
-          <div class="field"><label>Penugasan</label><select id="g-penugasan">${penugasanOptions()}</select></div>
+          <div class="field"><label>Penugasan</label><select id="g-penugasan" onchange="PresensiApp.onGuruPenugasanChange()">${penugasanOptions()}</select></div>
           <div class="field"><label>Username</label><input id="g-username" placeholder="username login"/></div>
           <div class="field"><label>Kata Sandi</label><input id="g-password" placeholder="kata sandi"/></div>
+        </div>
+        <div class="field hidden" id="g-mapel-wrap" style="margin-top:10px;max-width:320px;">
+          <label>Nama Mata Pelajaran</label><input id="g-mapel" placeholder="Misal: Pendidikan Agama Islam"/>
+        </div>
+        <div class="hidden" id="g-kelasajar-wrap" style="margin-top:10px;">
+          <label style="display:block;font-size:12.5px;font-weight:600;color:var(--navy-2);margin-bottom:6px;">Kelas yang Diajar</label>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            ${KELAS_LIST.map(k=>`<label style="display:flex;align-items:center;gap:5px;font-size:13px;">
+              <input type="checkbox" class="g-kelasajar-cb" value="${k}"/> Kelas ${k}</label>`).join("")}
+          </div>
         </div>
         <div style="margin-top:8px;display:flex;gap:8px;">
           <button class="btn btn-gold" onclick="PresensiApp.saveGuru()">Simpan Guru</button>
@@ -416,6 +433,12 @@
       </div>`;
   }
 
+  function onGuruPenugasanChange(){
+    const val = document.getElementById("g-penugasan").value;
+    const isMapel = isMapelPenugasan(val);
+    document.getElementById("g-mapel-wrap").classList.toggle("hidden", !isMapel);
+    document.getElementById("g-kelasajar-wrap").classList.toggle("hidden", !isMapel);
+  }
   async function saveGuru(){
     const id = document.getElementById("guru-edit-id").value;
     const nama = document.getElementById("g-nama").value.trim();
@@ -423,13 +446,17 @@
     const penugasan = document.getElementById("g-penugasan").value;
     const username = document.getElementById("g-username").value.trim();
     const password = document.getElementById("g-password").value;
+    const isMapel = isMapelPenugasan(penugasan);
+    const mapel = isMapel ? document.getElementById("g-mapel").value.trim() : "";
+    const kelasAjar = isMapel ? [...document.querySelectorAll(".g-kelasajar-cb:checked")].map(cb=>cb.value) : [];
     if(!nama || !username || !password) return toast("Nama, username, dan kata sandi wajib diisi.");
+    if(isMapel && kelasAjar.length===0) return toast("Pilih minimal satu kelas yang diajar untuk guru mapel.");
     let gurus = await getData("guru_list", []);
     if(gurus.some(g=>g.username===username && g.id!==id)) return toast("Username sudah dipakai guru lain.");
     if(id){
-      gurus = gurus.map(g=> g.id===id ? {...g, nama, nip, penugasan, username, password} : g);
+      gurus = gurus.map(g=> g.id===id ? {...g, nama, nip, penugasan, username, password, mapel, kelasAjar} : g);
     } else {
-      gurus.push({id:uid("g"), nama, nip, penugasan, username, password});
+      gurus.push({id:uid("g"), nama, nip, penugasan, username, password, mapel, kelasAjar});
     }
     await setData("guru_list", gurus);
     toast("Data guru tersimpan.");
@@ -446,6 +473,11 @@
     document.getElementById("g-penugasan").value = g.penugasan;
     document.getElementById("g-username").value = g.username;
     document.getElementById("g-password").value = g.password;
+    document.getElementById("g-mapel").value = g.mapel || "";
+    (g.kelasAjar||[]).forEach(k=>{
+      const cb = document.querySelector(`.g-kelasajar-cb[value="${k}"]`); if(cb) cb.checked = true;
+    });
+    onGuruPenugasanChange();
     document.getElementById("guru-cancel").classList.remove("hidden");
   }
   function cancelGuruEdit(){ renderAdmin("guru"); }
@@ -884,17 +916,253 @@
     else toast("Gagal menyimpan. Coba lagi.");
   }
 
-  function wireTabExtras(){ /* placeholder for future dynamic bindings */ }
+  function wireTabExtras(tab){
+    if(tab==="semester" && lastSemesterMonths) drawSemesterChart(lastSemesterMonths);
+  }
 
   // ================= KEPALA SEKOLAH =================
   const kepsekNav = [
     {key:"monitor", label:"Pantau Presensi", icon:"📊"},
     {key:"laporan", label:"Unduh Laporan", icon:"⬇"},
+    {key:"semester", label:"Laporan Semester", icon:"📈"},
   ];
   async function renderKepsek(tab){
     state.view = {area:"kepsek", tab};
-    let content = tab==="laporan" ? await laporanAdminHtml() : await monitorHtml();
+    let content;
+    if(tab==="laporan") content = await laporanAdminHtml();
+    else if(tab==="semester"){ const s = semesterDefaults(); content = await semesterHtml(s.kelas, s.tahunAwal, s.semester); }
+    else content = await monitorHtml();
     shell(kepsekNav, tab, content, "Kepala Sekolah");
+    wireTabExtras(tab);
+  }
+
+  // ---- laporan semester (akhir semester): grafik batang + tanda tangan ----
+  let semState = null;
+  let lastSemesterMonths = null;
+  function semesterDefaults(){
+    if(semState) return semState;
+    const now = new Date();
+    const mo = now.getMonth()+1, yr = now.getFullYear();
+    const semester = (mo>=7) ? "ganjil" : "genap";
+    const tahunAwal = (mo>=7) ? yr : yr-1;
+    semState = {kelas: KELAS_LIST[0], tahunAwal, semester};
+    return semState;
+  }
+  function semesterYearOptions(centerYear){
+    const arr=[]; for(let y=centerYear-3;y<=centerYear+1;y++) arr.push(y); return arr;
+  }
+  function monthsForSemester(tahunAwal, semester){
+    if(semester==="ganjil"){
+      return [7,8,9,10,11,12].map(mo=>({ym: tahunAwal+"-"+pad(mo), mo, label: BULAN_NAMA[mo-1].slice(0,3)}));
+    } else {
+      const ty = tahunAwal+1;
+      return [1,2,3,4,5,6].map(mo=>({ym: ty+"-"+pad(mo), mo, label: BULAN_NAMA[mo-1].slice(0,3)}));
+    }
+  }
+  async function computeSemesterRecap(kelas, tahunAwal, semester){
+    const monthsDef = monthsForSemester(tahunAwal, semester);
+    const monthly = [];
+    let totals = {H:0,I:0,S:0,A:0};
+    let denomTotal = 0;
+    let jumlahMuridLatest = 0;
+    for(const mo of monthsDef){
+      const {jumlahMurid, hariEfektif, totals:t, classPct} = await computeRecap(kelas, mo.ym);
+      jumlahMuridLatest = jumlahMurid;
+      denomTotal += jumlahMurid * hariEfektif;
+      totals.H += t.H; totals.I += t.I; totals.S += t.S; totals.A += t.A;
+      monthly.push({label: mo.label, ym: mo.ym, classPct, hariEfektif, jumlahMurid});
+    }
+    const round1 = n => Math.round(((n*100)*(1/100))*1000)/1000;
+    const denom = Math.max(denomTotal, 1);
+    const classPctSemester = {
+      sakit: round1(totals.S/denom),
+      izin: round1(totals.I/denom),
+      alpha: round1(totals.A/denom),
+      ketidakhadiran: round1((totals.I+totals.S+totals.A)/denom)
+    };
+    return {months: monthly, totals, jumlahMurid: jumlahMuridLatest, denom, classPctSemester};
+  }
+  function drawSemesterChart(months, canvasArg){
+    const canvas = canvasArg || document.getElementById("semester-chart");
+    if(!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0,0,W,H);
+    const padding = {left:42, right:14, top:22, bottom:34};
+    const chartW = W - padding.left - padding.right;
+    const chartH = H - padding.top - padding.bottom;
+    const allVals = months.flatMap(m=>[m.classPct.sakit, m.classPct.izin, m.classPct.alpha]);
+    const maxVal = Math.max(10, ...allVals) * 1.15;
+    ctx.strokeStyle = "#DCE2EC"; ctx.fillStyle = "#6B7686"; ctx.font = "10px Arial"; ctx.lineWidth = 1;
+    const steps = 4;
+    for(let i=0;i<=steps;i++){
+      const val = maxVal/steps*i;
+      const y = padding.top + chartH - (val/maxVal)*chartH;
+      ctx.beginPath(); ctx.moveTo(padding.left,y); ctx.lineTo(W-padding.right,y); ctx.stroke();
+      ctx.fillText(Math.round(val)+"%", 4, y+3);
+    }
+    const groupW = chartW / months.length;
+    const barW = groupW / 5;
+    const colors = {sakit:"#2E5395", izin:"#B4720A", alpha:"#B3261E"};
+    months.forEach((mo,i)=>{
+      const gx = padding.left + i*groupW;
+      ["sakit","izin","alpha"].forEach((key,j)=>{
+        const val = mo.classPct[key];
+        const barH = (val/maxVal)*chartH;
+        const bx = gx + groupW*0.15 + j*barW*1.15;
+        const by = padding.top + chartH - barH;
+        ctx.fillStyle = colors[key];
+        ctx.fillRect(bx, by, barW, Math.max(barH,0));
+      });
+      ctx.fillStyle = "#1B2430"; ctx.font = "11px Arial"; ctx.textAlign = "center";
+      ctx.fillText(mo.label, gx + groupW/2, H - padding.bottom + 16);
+    });
+    ctx.textAlign = "left";
+    const legend = [["Sakit",colors.sakit],["Izin",colors.izin],["Alpha",colors.alpha]];
+    let lx = padding.left;
+    legend.forEach(([label,color])=>{
+      ctx.fillStyle = color; ctx.fillRect(lx, 4, 10, 10);
+      ctx.fillStyle = "#1B2430"; ctx.font = "11px Arial"; ctx.fillText(label, lx+14, 13);
+      lx += 62;
+    });
+  }
+  async function semesterHtml(kelas, tahunAwal, semester){
+    const {months, classPctSemester, jumlahMurid, denom} = await computeSemesterRecap(kelas, tahunAwal, semester);
+    lastSemesterMonths = months;
+    const signer = await getSignerNames(kelas);
+    const semesterLabel = semester==="ganjil" ? `Ganjil ${tahunAwal}/${tahunAwal+1}` : `Genap ${tahunAwal}/${tahunAwal+1}`;
+    const yearOpts = semesterYearOptions(tahunAwal);
+    return `
+      <div class="topbar">
+        <div><h2>Laporan Semester — Kelas ${kelas}</h2><div class="desc">Rekap akumulasi kehadiran satu semester dalam bentuk grafik batang, lengkap dengan tanda tangan guru kelas dan kepala sekolah.</div></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <div class="field" style="min-width:110px;"><label>Kelas</label>
+            <select onchange="PresensiApp.changeSemesterFilter(this.value, null, null)">
+              ${KELAS_LIST.map(k=>`<option value="${k}" ${k===kelas?"selected":""}>Kelas ${k}</option>`).join("")}
+            </select></div>
+          <div class="field" style="min-width:130px;"><label>Tahun Ajaran</label>
+            <select onchange="PresensiApp.changeSemesterFilter(null, this.value, null)">
+              ${yearOpts.map(ty=>`<option value="${ty}" ${ty===tahunAwal?"selected":""}>${ty}/${ty+1}</option>`).join("")}
+            </select></div>
+          <div class="field" style="min-width:120px;"><label>Semester</label>
+            <select onchange="PresensiApp.changeSemesterFilter(null, null, this.value)">
+              <option value="ganjil" ${semester==="ganjil"?"selected":""}>Ganjil</option>
+              <option value="genap" ${semester==="genap"?"selected":""}>Genap</option>
+            </select></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">
+          Grafik Persentase Ketidakhadiran per Bulan — Semester ${semesterLabel}
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-gold btn-sm" onclick="PresensiApp.downloadSemesterPdf('${kelas}',${tahunAwal},'${semester}')">🖶 Cetak / Simpan PDF</button>
+          </div>
+        </div>
+        <canvas id="semester-chart" width="680" height="320" style="width:100%;max-width:680px;height:auto;"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-title">Rekap Akumulasi Semester (${jumlahMurid} murid × total hari efektif = ${denom} hari-murid)</div>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="num" style="color:#2E5395;">${classPctSemester.sakit}%</div><div class="lbl">Sakit</div></div>
+          <div class="stat-box"><div class="num" style="color:#B4720A;">${classPctSemester.izin}%</div><div class="lbl">Izin</div></div>
+          <div class="stat-box"><div class="num" style="color:#B3261E;">${classPctSemester.alpha}%</div><div class="lbl">Alpha</div></div>
+          <div class="stat-box"><div class="num" style="color:#1E7B45;">${classPctSemester.ketidakhadiran}%</div><div class="lbl">Ketidakhadiran</div></div>
+        </div>
+        <table style="margin-top:14px;"><thead><tr><th>Bulan</th><th>% Sakit</th><th>% Izin</th><th>% Alpha</th><th>% Ketidakhadiran</th></tr></thead>
+        <tbody>${months.map(mo=>`<tr><td>${mo.label}</td><td>${mo.classPct.sakit}%</td><td>${mo.classPct.izin}%</td><td>${mo.classPct.alpha}%</td><td>${mo.classPct.ketidakhadiran}%</td></tr>`).join("")}</tbody></table>
+        <div class="muted" style="margin-top:14px;">Ditandatangani pada akhir semester oleh wali kelas dan kepala sekolah.</div>
+        <div style="display:flex;justify-content:space-around;margin-top:26px;text-align:center;font-size:13.5px;">
+          <div>Mengetahui,<br/>Kepala Sekolah<br/><br/><br/><br/><b>${esc(signer.kepsek.nama)}</b><br/>NIP. ${esc(signer.kepsek.nip)||"-"}</div>
+          <div>Reksosari, ${fmtDateID(todayStr())}<br/>Guru Kelas ${kelas}<br/><br/><br/><br/><b>${esc(signer.wali.nama)}</b><br/>NIP. ${esc(signer.wali.nip)||"-"}</div>
+        </div>
+      </div>`;
+  }
+  async function changeSemesterFilter(kelas, tahunAwal, semester){
+    const s = semesterDefaults();
+    if(kelas) s.kelas = kelas;
+    if(tahunAwal) s.tahunAwal = parseInt(tahunAwal,10);
+    if(semester) s.semester = semester;
+    const html = await semesterHtml(s.kelas, s.tahunAwal, s.semester);
+    document.getElementById("main").innerHTML = html;
+    drawSemesterChart(lastSemesterMonths);
+  }
+  async function downloadSemesterPdf(kelas, tahunAwal, semester){
+    const {months, classPctSemester, jumlahMurid, denom} = await computeSemesterRecap(kelas, tahunAwal, semester);
+    const signer = await getSignerNames(kelas);
+    const semesterLabel = semester==="ganjil" ? `Ganjil ${tahunAwal}/${tahunAwal+1}` : `Genap ${tahunAwal}/${tahunAwal+1}`;
+    const todayFmt = fmtDateID(todayStr());
+    const chartCanvas = document.createElement("canvas");
+    chartCanvas.width = 900; chartCanvas.height = 420;
+    drawSemesterChart(months, chartCanvas);
+    const chartImg = chartCanvas.toDataURL("image/png");
+
+    try{
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({unit:"mm", format:"a4", orientation:"portrait"});
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+
+      doc.setFont("helvetica","bold");
+      doc.setFontSize(14);
+      doc.text(SCHOOL, pageW/2, 16, {align:"center"});
+      doc.setFont("helvetica","normal");
+      doc.setFontSize(10.5);
+      doc.text(`Laporan Semester ${semesterLabel} — Kelas ${kelas}`, pageW/2, 23, {align:"center"});
+
+      const imgW = pageW - 36; const imgH = imgW * (420/900);
+      doc.addImage(chartImg, "PNG", 18, 30, imgW, imgH);
+
+      let yPos = 30 + imgH + 8;
+      doc.autoTable({
+        startY: yPos,
+        margin:{left:18,right:18},
+        head: [["Bulan","% Sakit","% Izin","% Alpha","% Ketidakhadiran"]],
+        body: months.map(mo=>[mo.label, mo.classPct.sakit+"%", mo.classPct.izin+"%", mo.classPct.alpha+"%", mo.classPct.ketidakhadiran+"%"]),
+        styles:{ font:"helvetica", fontSize:9, cellPadding:2.5, halign:"center" },
+        headStyles:{ fillColor:[31,56,100], textColor:255 },
+        theme:"grid"
+      });
+
+      let y2 = doc.lastAutoTable.finalY + 8;
+      doc.setFont("helvetica","bold");
+      doc.setFontSize(9.5);
+      doc.text(`Rekap Akumulasi Semester (${jumlahMurid} murid × total hari efektif = ${denom} hari-murid)`, 18, y2);
+      doc.autoTable({
+        startY: y2 + 3,
+        margin:{left:18,right:18},
+        tableWidth: 130,
+        body: [
+          ["% Sakit", classPctSemester.sakit+"%"],
+          ["% Izin", classPctSemester.izin+"%"],
+          ["% Alpha", classPctSemester.alpha+"%"],
+          ["% Ketidakhadiran (Izin+Sakit+Alpha)", classPctSemester.ketidakhadiran+"%"]
+        ],
+        styles:{ font:"helvetica", fontSize:9, cellPadding:2.5 },
+        columnStyles:{ 1:{halign:"center"} },
+        theme:"grid"
+      });
+
+      let sigY = doc.lastAutoTable.finalY + 20;
+      if(sigY > pageH - 45){ doc.addPage("a4","portrait"); sigY = 30; }
+      const leftX = pageW*0.27, rightX = pageW*0.75;
+      doc.setFont("helvetica","normal");
+      doc.setFontSize(10);
+      doc.text("Mengetahui,", leftX, sigY, {align:"center"});
+      doc.text("Kepala Sekolah", leftX, sigY+5, {align:"center"});
+      doc.text(`Reksosari, ${todayFmt}`, rightX, sigY, {align:"center"});
+      doc.text(`Guru Kelas ${kelas}`, rightX, sigY+5, {align:"center"});
+
+      const nameY = sigY + 30;
+      doc.text(signer.kepsek.nama, leftX, nameY, {align:"center"});
+      doc.text(`NIP. ${signer.kepsek.nip||"-"}`, leftX, nameY+5, {align:"center"});
+      doc.text(signer.wali.nama, rightX, nameY, {align:"center"});
+      doc.text(`NIP. ${signer.wali.nip||"-"}`, rightX, nameY+5, {align:"center"});
+
+      showPdfPreview(doc, `Laporan_Semester_${semester}_${tahunAwal}_Kelas${kelas}.pdf`);
+    }catch(err){
+      console.error(err);
+      toast("Gagal membuat PDF. Coba lagi.");
+    }
   }
 
   // ================= GURU =================
@@ -902,18 +1170,21 @@
     {key:"input", label:"Input Presensi", icon:"✅"},
     {key:"rekap", label:"Rekap Bulanan", icon:"📋"},
   ];
+  let mapelState = { kelas:null, tanggal:null, rekapKelas:null, rekapYm:null };
   async function renderGuru(tab){
     state.view = {area:"guru", tab};
     const kelas = kelasFromPenugasan(state.user.penugasan);
+    const isMapel = isMapelPenugasan(state.user.penugasan) && (state.user.kelasAjar||[]).length>0;
     let content;
-    if(!kelas){
-      content = `<div class="card"><div class="empty"><div class="big">⚠</div>Akun Anda belum ditugaskan sebagai wali kelas.<br/>Hubungi admin untuk pengaturan penugasan kelas.</div></div>`;
-    } else if(tab==="rekap"){
-      content = await rekapGuruHtml(kelas);
+    if(kelas){
+      content = tab==="rekap" ? await rekapGuruHtml(kelas) : await inputPresensiHtml(kelas, todayStr());
+    } else if(isMapel){
+      content = tab==="rekap" ? await rekapMapelHtml() : await inputPresensiMapelHtml();
     } else {
-      content = await inputPresensiHtml(kelas, todayStr());
+      content = `<div class="card"><div class="empty"><div class="big">⚠</div>Akun Anda belum ditugaskan sebagai wali kelas atau guru mata pelajaran.<br/>Hubungi admin untuk pengaturan penugasan.</div></div>`;
     }
-    shell(guruNav, tab, content, "Guru — " + esc(state.user.penugasan||""));
+    const roleLabel = "Guru — " + esc(state.user.penugasan||"") + (isMapel && state.user.mapel ? " (" + esc(state.user.mapel) + ")" : "");
+    shell(guruNav, tab, content, roleLabel);
   }
 
   async function inputPresensiHtml(kelas, tanggal){
@@ -999,6 +1270,287 @@
     }
   }
 
+  // ---- guru mapel: input presensi (hanya pada hari mengajar) ----
+  async function inputPresensiMapelHtml(){
+    const kelasList = state.user.kelasAjar || [];
+    if(!mapelState.kelas || !kelasList.includes(mapelState.kelas)) mapelState.kelas = kelasList[0] || null;
+    const kelas = mapelState.kelas;
+    if(!kelas) return `<div class="card"><div class="empty"><div class="big">⚠</div>Belum ada kelas yang ditugaskan untuk Anda. Hubungi admin.</div></div>`;
+    const tanggal = mapelState.tanggal || todayStr();
+    const murid = await getData("murid_list", []);
+    const list = murid.filter(m=>m.kelas===kelas).sort((a,b)=>a.nama.localeCompare(b.nama));
+    const ym = tanggal.slice(0,7);
+    const monthData = await getData(`presensi_mapel:${state.user.id}:${kelas}:${ym}`, {});
+    const dayData = monthData[tanggal] || {};
+
+    const rows = list.map(m=>{
+      const cur = dayData[m.id] || "";
+      return `<div class="att-row">
+        <div><div class="att-name">${esc(m.nama)}</div><div class="att-nisn">NISN ${esc(m.nisn)||"-"}</div></div>
+        <div class="seg" data-murid="${m.id}">
+          ${["H","I","S","A"].map(s=>`<button class="sel-${s} ${cur===s?'on':''}" onclick="PresensiApp.setStatus('${m.id}','${s}')">${s}</button>`).join("")}
+        </div>
+      </div>`;
+    }).join("");
+
+    return `
+      <div class="topbar">
+        <div><h2>Input Presensi Mapel — ${esc(state.user.mapel||"Mata Pelajaran")}</h2><div class="desc">Isi presensi hanya pada hari Anda mengajar kelas ini (bukan setiap hari efektif).</div></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <div class="field" style="min-width:130px;"><label>Kelas</label>
+            <select onchange="PresensiApp.changeMapelKelas(this.value)">
+              ${kelasList.map(k=>`<option value="${k}" ${k===kelas?"selected":""}>Kelas ${k}</option>`).join("")}
+            </select></div>
+          <div class="field" style="min-width:180px;"><label>Tanggal Pertemuan</label>
+            <input type="date" value="${tanggal}" onchange="PresensiApp.changeMapelTanggal(this.value)"/></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">
+          ${fmtDateID(tanggal)} — Kelas ${kelas}
+          <button class="btn btn-outline btn-sm" onclick="PresensiApp.markAllHadir()">Tandai Semua Hadir</button>
+        </div>
+        ${list.length? `<div id="att-list">${rows}</div>` : `<div class="empty"><div class="big">🎒</div>Belum ada murid terdaftar di Kelas ${kelas}. Hubungi admin.</div>`}
+        ${list.length? `<div style="margin-top:14px;"><button class="btn btn-primary" style="width:auto;" onclick="PresensiApp.saveAttendanceMapel('${kelas}','${tanggal}')">Simpan Presensi Pertemuan</button></div>`:""}
+      </div>`;
+  }
+  async function changeMapelKelas(k){
+    mapelState.kelas = k; pendingStatus = {};
+    document.getElementById("main").innerHTML = await inputPresensiMapelHtml();
+  }
+  async function changeMapelTanggal(v){
+    mapelState.tanggal = v; pendingStatus = {};
+    document.getElementById("main").innerHTML = await inputPresensiMapelHtml();
+  }
+  async function saveAttendanceMapel(kelas, tanggal){
+    const murid = await getData("murid_list", []);
+    const list = murid.filter(m=>m.kelas===kelas);
+    const dayResult = {};
+    document.querySelectorAll("#att-list .seg").forEach(seg=>{
+      const id = seg.getAttribute("data-murid");
+      const onBtn = seg.querySelector("button.on");
+      if(onBtn){
+        const cls = [...onBtn.classList].find(c=>c.startsWith("sel-"));
+        dayResult[id] = cls.replace("sel-","");
+      }
+    });
+    const doSave = async ()=>{
+      const ym = tanggal.slice(0,7);
+      const key = `presensi_mapel:${state.user.id}:${kelas}:${ym}`;
+      const monthData = await getData(key, {});
+      monthData[tanggal] = dayResult;
+      const ok = await setData(key, monthData);
+      if(ok){ toast("Presensi pertemuan " + fmtDateID(tanggal) + " tersimpan."); pendingStatus={}; }
+      else toast("Gagal menyimpan. Coba lagi.");
+    };
+    if(Object.keys(dayResult).length < list.length){
+      showConfirm(
+        `Masih ada murid yang belum ditandai (${list.length - Object.keys(dayResult).length} murid). Simpan tetap dilanjutkan?`,
+        doSave,
+        {yesLabel:"Simpan", yesClass:"btn-gold"}
+      );
+    } else {
+      await doSave();
+    }
+  }
+
+  // ---- guru mapel: rekap (dihitung dari jumlah pertemuan, bukan hari efektif) ----
+  async function computeRecapMapel(guruId, kelas, ym){
+    const murid = (await getData("murid_list", [])).filter(m=>m.kelas===kelas).sort((a,b)=>a.nama.localeCompare(b.nama));
+    const monthData = await getData(`presensi_mapel:${guruId}:${kelas}:${ym}`, {});
+    const dates = Object.keys(monthData).sort();
+    const jumlahPertemuan = dates.length;
+    const summary = murid.map(m=>{
+      const c = {H:0,I:0,S:0,A:0};
+      dates.forEach(dt=>{ const s = monthData[dt][m.id]; if(s && c[s]!==undefined) c[s]++; });
+      const totalTercatat = c.H+c.I+c.S+c.A;
+      const pct = totalTercatat ? Math.round((c.H/totalTercatat)*1000)/10 : 0;
+      return {nama:m.nama, nisn:m.nisn, ...c, total: totalTercatat, pct};
+    });
+    const jumlahMurid = murid.length;
+    const denom = Math.max(jumlahMurid * jumlahPertemuan, 1);
+    const totals = summary.reduce((acc,m)=>{acc.H+=m.H;acc.I+=m.I;acc.S+=m.S;acc.A+=m.A;return acc;},{H:0,I:0,S:0,A:0});
+    const round1 = n => Math.round(((n*100)*(1/100))*1000)/1000;
+    const classPct = {
+      sakit: round1(totals.S/denom),
+      izin: round1(totals.I/denom),
+      alpha: round1(totals.A/denom),
+      ketidakhadiran: round1((totals.I+totals.S+totals.A)/denom)
+    };
+    return {murid: summary, jumlahMurid, jumlahPertemuan, totals, classPct};
+  }
+  async function rekapMapelHtml(){
+    const kelasList = state.user.kelasAjar || [];
+    if(!mapelState.rekapKelas || !kelasList.includes(mapelState.rekapKelas)) mapelState.rekapKelas = kelasList[0] || null;
+    if(!mapelState.rekapYm) mapelState.rekapYm = thisMonthStr();
+    if(!mapelState.rekapKelas) return `<div class="card"><div class="empty"><div class="big">⚠</div>Belum ada kelas yang ditugaskan untuk Anda.</div></div>`;
+    return renderRekapMapelBody(mapelState.rekapKelas, mapelState.rekapYm);
+  }
+  async function renderRekapMapelBody(kelas, ym){
+    const {murid, jumlahMurid, jumlahPertemuan, classPct} = await computeRecapMapel(state.user.id, kelas, ym);
+    const kelasList = state.user.kelasAjar || [];
+    const rows = murid.map((m,i)=>`
+      <tr>
+        <td>${i+1}</td><td>${esc(m.nama)}</td><td>${esc(m.nisn)||"-"}</td>
+        <td><span class="pill pill-h">${m.H}</span></td><td><span class="pill pill-i">${m.I}</span></td>
+        <td><span class="pill pill-s">${m.S}</span></td><td><span class="pill pill-a">${m.A}</span></td>
+        <td>${m.pct}%</td>
+      </tr>`).join("");
+    return `
+      <div class="topbar">
+        <div><h2>Rekap Bulanan Mapel — ${esc(state.user.mapel||"")}</h2><div class="desc">Dihitung dari jumlah pertemuan yang tercatat bulan ini (${jumlahPertemuan} kali pertemuan), bukan akumulasi hari efektif kalender.</div></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <div class="field" style="min-width:130px;"><label>Kelas</label>
+            <select onchange="PresensiApp.changeMapelRekapKelas(this.value)">
+              ${kelasList.map(k=>`<option value="${k}" ${k===kelas?"selected":""}>Kelas ${k}</option>`).join("")}
+            </select></div>
+          <div class="field" style="min-width:180px;"><label>Bulan</label>
+            <input type="month" value="${ym}" onchange="PresensiApp.changeMapelRekapMonth(this.value)"/></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">
+          Tabel Rekap Kehadiran per Murid
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-gold btn-sm" onclick="PresensiApp.downloadRecapMapel('${kelas}','${ym}')">⬇ Excel</button>
+            <button class="btn btn-outline btn-sm" onclick="PresensiApp.printRecapMapel('${kelas}','${ym}')">🖶 Cetak / PDF</button>
+          </div>
+        </div>
+        ${murid.length? `<table><thead><tr><th>No</th><th>Nama</th><th>NISN</th><th>H</th><th>I</th><th>S</th><th>A</th><th>% Hadir</th></tr></thead>
+        <tbody>${rows}</tbody></table>` : `<div class="empty"><div class="big">📋</div>Belum ada data murid di kelas ini.</div>`}
+
+        ${murid.length? `
+        <div class="card-title" style="margin-top:22px;">Rekap Akumulasi Kelas ${kelas} (Bulanan — Mapel ${esc(state.user.mapel||"")})</div>
+        <div class="muted" style="margin-bottom:12px;">
+          Dihitung dari total hari kategori seluruh murid dibagi (jumlah murid × jumlah pertemuan) — ${jumlahMurid} murid × ${jumlahPertemuan} pertemuan = ${jumlahMurid*jumlahPertemuan} murid-pertemuan.
+        </div>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="num" style="color:#2E5395;">${classPct.sakit}%</div><div class="lbl">Sakit</div></div>
+          <div class="stat-box"><div class="num" style="color:#B4720A;">${classPct.izin}%</div><div class="lbl">Izin</div></div>
+          <div class="stat-box"><div class="num" style="color:#B3261E;">${classPct.alpha}%</div><div class="lbl">Alpha</div></div>
+          <div class="stat-box"><div class="num" style="color:#1E7B45;">${classPct.ketidakhadiran}%</div><div class="lbl">Jumlah Absen</div></div>
+        </div>
+        <div class="muted" style="margin-top:-6px;">*Persentase jumlah absen (Izin+Sakit+Alpha) terhadap total murid-pertemuan, sesuai jumlah pertemuan yang tercatat.</div>
+        ` : ""}
+      </div>`;
+  }
+  async function changeMapelRekapKelas(k){
+    mapelState.rekapKelas = k;
+    document.getElementById("main").innerHTML = await renderRekapMapelBody(k, mapelState.rekapYm || thisMonthStr());
+  }
+  async function changeMapelRekapMonth(ym){
+    mapelState.rekapYm = ym;
+    document.getElementById("main").innerHTML = await renderRekapMapelBody(mapelState.rekapKelas, ym);
+  }
+  async function downloadRecapMapel(kelas, ym){
+    if(!kelas || !ym) return toast("Pilih kelas dan bulan terlebih dahulu.");
+    const {murid, jumlahMurid, jumlahPertemuan, classPct} = await computeRecapMapel(state.user.id, kelas, ym);
+    const guruList = await getData("guru_list", []);
+    const kepsek = guruList.find(g=>g.penugasan==="Kepala Sekolah") || {nama:"........................", nip:"........................"};
+    const [y,m] = ym.split("-");
+    const bulanNama = BULAN_NAMA[parseInt(m,10)-1];
+    const wsData = [
+      [`REKAP PRESENSI MATA PELAJARAN — ${SCHOOL}`],
+      [`${state.user.mapel||"Mapel"} — Kelas ${kelas} — ${bulanNama} ${y}`],
+      [],
+      ["No","Nama","NISN","Hadir","Izin","Sakit","Alpha","% Kehadiran"],
+      ...murid.map((m,i)=>[i+1, m.nama, m.nisn, m.H, m.I, m.S, m.A, m.pct+"%"]),
+      [],
+      [`Rekap Akumulasi Kelas (${jumlahMurid} murid × ${jumlahPertemuan} pertemuan)`],
+      ["% Sakit", classPct.sakit+"%"],
+      ["% Izin", classPct.izin+"%"],
+      ["% Alpha", classPct.alpha+"%"],
+      ["% Jumlah Absen (Izin+Sakit+Alpha)", classPct.ketidakhadiran+"%"],
+      [],
+      ["", "Mengetahui,", "", "", "", "Reksosari, "+ (new Date()).getDate()+" "+bulanNama+" "+y],
+      ["", "Kepala Sekolah", "", "", "", "Guru Mapel "+(state.user.mapel||"")],
+      ["", "", "", "", "", ""],
+      ["", "", "", "", "", ""],
+      ["", kepsek.nama, "", "", "", state.user.nama],
+      ["", "NIP. "+(kepsek.nip||"-"), "", "", "", "NIP. "+(state.user.nip||"-")],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws["!cols"] = [{wch:5},{wch:24},{wch:16},{wch:8},{wch:8},{wch:8},{wch:8},{wch:12}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Rekap Mapel Kelas "+kelas);
+    XLSX.writeFile(wb, `Rekap_Mapel_Kelas${kelas}_${ym}.xlsx`);
+    toast("File Excel diunduh.");
+  }
+  async function printRecapMapel(kelas, ym){
+    if(!kelas || !ym) return toast("Pilih kelas dan bulan terlebih dahulu.");
+    const {murid, jumlahMurid, jumlahPertemuan, classPct} = await computeRecapMapel(state.user.id, kelas, ym);
+    const guruList = await getData("guru_list", []);
+    const kepsek = guruList.find(g=>g.penugasan==="Kepala Sekolah") || {nama:"........................", nip:"........................"};
+    const [y,m] = ym.split("-");
+    const bulanNama = BULAN_NAMA[parseInt(m,10)-1];
+    const todayFmt = fmtDateID(todayStr());
+    try{
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({unit:"mm", format:"a4", orientation:"portrait"});
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+
+      doc.setFont("helvetica","bold");
+      doc.setFontSize(14);
+      doc.text(SCHOOL, pageW/2, 16, {align:"center"});
+      doc.setFont("helvetica","normal");
+      doc.setFontSize(10.5);
+      doc.text(`Rekap Presensi Mapel ${state.user.mapel||""} — Kelas ${kelas} — ${bulanNama} ${y}`, pageW/2, 23, {align:"center"});
+
+      doc.autoTable({
+        startY: 30,
+        margin:{left:18,right:18},
+        head: [["No","Nama","NISN","Hadir","Izin","Sakit","Alpha","% Hadir"]],
+        body: murid.map((mm,i)=>[i+1, mm.nama, mm.nisn||"-", mm.H, mm.I, mm.S, mm.A, mm.pct+"%"]),
+        styles:{ font:"helvetica", fontSize:9.5, cellPadding:3, halign:"center" },
+        columnStyles:{ 1:{halign:"left"}, 2:{halign:"left"} },
+        headStyles:{ fillColor:[31,56,100], textColor:255, halign:"center" },
+        theme:"grid"
+      });
+
+      let yPos = doc.lastAutoTable.finalY + 10;
+      doc.setFont("helvetica","bold");
+      doc.setFontSize(9.5);
+      doc.text(`Rekap Akumulasi Kelas (${jumlahMurid} murid × ${jumlahPertemuan} pertemuan)`, 18, yPos);
+
+      doc.autoTable({
+        startY: yPos + 3,
+        margin:{left:18,right:18},
+        tableWidth: 130,
+        body: [
+          ["% Sakit", classPct.sakit+"%"],
+          ["% Izin", classPct.izin+"%"],
+          ["% Alpha", classPct.alpha+"%"],
+          ["% Jumlah Absen (Izin+Sakit+Alpha)", classPct.ketidakhadiran+"%"]
+        ],
+        styles:{ font:"helvetica", fontSize:9, cellPadding:2.5 },
+        columnStyles:{ 1:{halign:"center"} },
+        theme:"grid"
+      });
+
+      let sigY = doc.lastAutoTable.finalY + 20;
+      if(sigY > pageH - 45){ doc.addPage("a4","portrait"); sigY = 30; }
+      const leftX = pageW*0.27, rightX = pageW*0.75;
+      doc.setFont("helvetica","normal");
+      doc.setFontSize(10);
+      doc.text("Mengetahui,", leftX, sigY, {align:"center"});
+      doc.text("Kepala Sekolah", leftX, sigY+5, {align:"center"});
+      doc.text(`Reksosari, ${todayFmt}`, rightX, sigY, {align:"center"});
+      doc.text(`Guru Mapel ${state.user.mapel||""}`, rightX, sigY+5, {align:"center"});
+
+      const nameY = sigY + 30;
+      doc.text(kepsek.nama, leftX, nameY, {align:"center"});
+      doc.text(`NIP. ${kepsek.nip||"-"}`, leftX, nameY+5, {align:"center"});
+      doc.text(state.user.nama, rightX, nameY, {align:"center"});
+      doc.text(`NIP. ${state.user.nip||"-"}`, rightX, nameY+5, {align:"center"});
+
+      showPdfPreview(doc, `Rekap_Mapel_Kelas${kelas}_${ym}.pdf`);
+    }catch(err){
+      console.error(err);
+      toast("Gagal membuat PDF. Coba lagi.");
+    }
+  }
+
   // ---- rekap ----
   async function computeRecap(kelas, ym){
     const murid = (await getData("murid_list", [])).filter(m=>m.kelas===kelas).sort((a,b)=>a.nama.localeCompare(b.nama));
@@ -1019,12 +1571,12 @@
     const hariEfektif = Math.max(await effectiveDaysUpTo(ym, upTo), 1);
     const denom = Math.max(jumlahMurid * hariEfektif, 1);
     const totals = summary.reduce((acc,m)=>{acc.H+=m.H;acc.I+=m.I;acc.S+=m.S;acc.A+=m.A;return acc;},{H:0,I:0,S:0,A:0});
-    const round1 = n => Math.round(n*1000)/10;
+    const round1 = n => Math.round(((n*100)*(1/100))*1000)/1000;
     const classPct = {
-      sakit: round1(totals.S/denom*100),
-      izin: round1(totals.I/denom*100),
-      alpha: round1(totals.A/denom*100),
-      ketidakhadiran: round1((totals.I+totals.S+totals.A)/denom*100)
+      sakit: round1(totals.S/denom),
+      izin: round1(totals.I/denom),
+      alpha: round1(totals.A/denom),
+      ketidakhadiran: round1((totals.I+totals.S+totals.A)/denom)
     };
 
     return {murid: summary, hariTercatat: dates.length, jumlahMurid, hariEfektif, totals, classPct};
@@ -1069,9 +1621,9 @@
           <div class="stat-box"><div class="num" style="color:#2E5395;">${classPct.sakit}%</div><div class="lbl">Sakit</div></div>
           <div class="stat-box"><div class="num" style="color:#B4720A;">${classPct.izin}%</div><div class="lbl">Izin</div></div>
           <div class="stat-box"><div class="num" style="color:#B3261E;">${classPct.alpha}%</div><div class="lbl">Alpha</div></div>
-          <div class="stat-box"><div class="num" style="color:#1E7B45;">${classPct.ketidakhadiran}%</div><div class="lbl">Kehadiran*</div></div>
+          <div class="stat-box"><div class="num" style="color:#1E7B45;">${classPct.ketidakhadiran}%</div><div class="lbl">Jumlah Absen</div></div>
         </div>
-        <div class="muted" style="margin-top:-6px;">*Persentase ketidakhadiran (Izin+Sakit+Alpha) terhadap total hari-murid, sesuai formula kelas.</div>
+        <div class="muted" style="margin-top:-6px;">*Persentase jumlah absen (Izin+Sakit+Alpha) terhadap total hari-murid, sesuai formula kelas.</div>
         ` : ""}
       </div>`;
   }
@@ -1107,7 +1659,7 @@
       ["% Sakit", classPct.sakit+"%"],
       ["% Izin", classPct.izin+"%"],
       ["% Alpha", classPct.alpha+"%"],
-      ["% Kehadiran (ketidakhadiran: izin+sakit+alpha)", classPct.ketidakhadiran+"%"],
+      ["% Jumlah Absen (Izin+Sakit+Alpha)", classPct.ketidakhadiran+"%"],
       [],
       ["", "Mengetahui,", "", "", "", "Reksosari, "+ (new Date()).getDate()+" "+bulanNama+" "+y],
       ["", "Kepala Sekolah", "", "", "", "Guru Kelas "+kelas],
@@ -1226,7 +1778,7 @@
           ["% Sakit", classPct.sakit+"%"],
           ["% Izin", classPct.izin+"%"],
           ["% Alpha", classPct.alpha+"%"],
-          ["% Kehadiran (ketidakhadiran: izin+sakit+alpha)", classPct.ketidakhadiran+"%"]
+          ["% Jumlah Absen (Izin+Sakit+Alpha)", classPct.ketidakhadiran+"%"]
         ],
         styles:{ font:"helvetica", fontSize:9, cellPadding:2.5 },
         columnStyles:{ 1:{halign:"center"} },
@@ -1264,7 +1816,7 @@
 
   window.PresensiApp = {
     login, logout, go,
-    saveGuru, editGuru, cancelGuruEdit, deleteGuru,
+    saveGuru, editGuru, cancelGuruEdit, deleteGuru, onGuruPenugasanChange,
     saveMurid, editMurid, cancelMuridEdit, deleteMurid,
     handleFileImport, confirmFileImport, cancelFileImport,
     downloadTemplateMurid,
@@ -1273,7 +1825,10 @@
     setStatus, markAllHadir, changeTanggal, saveAttendance,
     changeRekapMonth, downloadRecap, printRecap,
     changeUsiaMonth,
-    changeKalenderMonth, toggleHariEfektif, resetKalenderDefault, saveKalender
+    changeKalenderMonth, toggleHariEfektif, resetKalenderDefault, saveKalender,
+    changeMapelKelas, changeMapelTanggal, saveAttendanceMapel,
+    changeMapelRekapKelas, changeMapelRekapMonth, downloadRecapMapel, printRecapMapel,
+    changeSemesterFilter, downloadSemesterPdf
   };
 
   renderLogin();
